@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PointPlan</title>
+<meta name="description" content="Plan trips day by day: stops, times, costs and a map. Works offline.">
+<meta name="theme-color" content="#111418">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="PointPlan">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<style>
+/* VOICE: minimal travel planner, calm and quick to scan
+   IDEA: day cards like a printed itinerary card beside a clean pinned map
+   PICTURE: the map with round numbered markers and name labels, in a rounded frame
+   COLOUR and TYPE: soft grey ground, white cards, ink-black actions, one colour per day; Inter throughout
+   LAYOUT: slim top bar with trip facts as chips; day cards left, sticky map card right; map first under 900px */
+:root{color-scheme:light dark;
+--bg:light-dark(#eef0f3,#0d1117);--panel:light-dark(#f5f6f8,#161b22);--card:light-dark(#ffffff,#161c23);--card2:light-dark(#f7f8fa,#1c232c);
+--ink:light-dark(#111418,#e9edf1);--ink2:light-dark(#3d4550,#c3ccd5);--muted:light-dark(#7a828c,#8691a0);--line:light-dark(#e6e8ec,#252d37);
+--blue:light-dark(#111418,#e9edf1);--blue2:light-dark(#2563eb,#6ea2ff);--coral:#ff5a3c;--coralInk:light-dark(#d92d20,#ff7a6b);
+--water:light-dark(#d5e4ef,#0e1a26);--land:light-dark(#f7f6f1,#1b222b);--border:light-dark(#d3d6d0,#2c3642);--label:light-dark(#5c6670,#9aa6b2);
+--ok:light-dark(#15803d,#4ade80);--warn:light-dark(#a16207,#facc15);
+--shadow:0 1px 2px rgba(16,24,40,.05),0 4px 16px rgba(16,24,40,.06)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Inter,system-ui,sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue2);outline-offset:2px}
+h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.btn{min-height:42px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-weight:600;font-size:15px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--ink2)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.primary:hover{opacity:.88}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.danger{color:var(--coralInk)}
+.btn svg{width:18px;height:18px;flex:none}
+/* top bar */
+.band{background:var(--card);border-bottom:1px solid var(--line);padding:10px max(2vw,14px)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.brand{display:flex;align-items:center;margin-right:2px}
+.brand i{width:30px;height:30px;border-radius:9px;background:var(--ink);display:grid;place-items:center}
+.brand i::after{content:"";width:10px;height:10px;border-radius:50%;border:3px solid var(--bg)}
+.brand span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.tripsel{position:relative;display:flex;align-items:center}
+.band select{appearance:none;-webkit-appearance:none;border:0;background:transparent;font:700 20px Inter,sans-serif;letter-spacing:-.01em;padding:6px 30px 6px 8px;border-radius:10px;max-width:min(52vw,420px);text-overflow:ellipsis;cursor:pointer;min-height:42px}
+.band select:hover{background:var(--panel)}
+.tripsel::after{content:"";position:absolute;right:10px;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-3px) rotate(45deg);pointer-events:none}
+.band .ib{width:42px;height:42px;padding:0;justify-content:center;border-radius:50%;background:var(--card)}
+.band .ib .lbl{display:none}
+.spacer{flex:1}
+.sync{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}.sync.off::before{background:var(--warn)}
+.facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.fact{flex:none;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:500;color:var(--ink2);background:var(--card);white-space:nowrap}
+.fact svg{width:15px;height:15px;color:var(--muted)}
+.fact b{color:var(--ink);font-weight:650}
+.fact.over b{color:var(--coralInk)}
+/* layout */
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);align-items:start}
+.panel{padding:16px max(1.6vw,12px) 60px;min-height:70vh}
+.mapwrap{position:sticky;top:0;height:100vh;padding:16px 16px 16px 4px}
+.mapcard{position:relative;height:100%;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line)}
+#map{position:absolute;inset:0;background:var(--water)}
+.tabs{display:inline-flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:12px;max-width:100%;overflow-x:auto}
+.tabs button{border:0;background:none;min-height:36px;padding:0 14px;font-weight:600;font-size:14px;color:var(--muted);border-radius:999px;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--bg);background:var(--ink)}
+.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.days::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;min-height:36px;padding:0 13px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip i{width:8px;height:8px;border-radius:50%;display:block}
+.tools{display:flex;gap:8px;margin:10px 0 4px;flex-wrap:wrap}
+.tools input{flex:1;min-width:160px;min-height:42px;border:1px solid var(--line);border-radius:999px;padding:0 16px;background:var(--card);font-size:16px}
+/* day cards */
+.day{margin-top:14px;background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:6px 18px 10px;border:1px solid var(--line)}
+.dayhead{display:flex;align-items:center;gap:12px;padding:12px 0 12px;border-bottom:1px solid var(--line)}
+.dayhead .dn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font:700 17px Inter,sans-serif;flex:none}
+.dayhead h2{font-size:19px;font-weight:700;line-height:1.2}
+.dayhead .d{display:block;color:var(--muted);font-size:13px;font-weight:500;margin-top:1px}
+.dayhead .t{margin-left:auto;font-size:13px;font-weight:600;color:var(--ink2);background:var(--panel);border-radius:999px;padding:4px 10px}
+.stop{position:relative;display:grid;grid-template-columns:52px 24px minmax(0,1fr) auto;gap:0 12px;align-items:start;padding:12px 76px 12px 6px;margin:0 -10px;border-radius:14px;cursor:pointer;border-top:1px dashed var(--line)}
+.dayhead + .stop,.dayhead + .ph + .stop{border-top:0}
+.stop:hover{background:var(--card2)}
+.stop.sel{background:color-mix(in srgb,var(--c) 10%,var(--card));border-top-color:transparent}
+.stop.sel + .stop{border-top-color:transparent}
+.time{font:600 15px Inter,sans-serif;color:var(--ink2);font-variant-numeric:tabular-nums;padding-top:1px;line-height:1.3}
+.time small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.time .ap{font-size:11px;font-weight:600;margin-left:2px;color:var(--muted)}
+.h12 .stop{grid-template-columns:70px 24px minmax(0,1fr) auto}
+.dot{width:24px;height:24px;border-radius:50%;background:var(--c);color:#fff;display:grid;place-items:center;font:700 11.5px Inter,sans-serif;margin-top:0;box-shadow:0 0 0 2px var(--card)}
+.dot.none{background:transparent;border:1.5px dashed var(--muted);box-shadow:none}
+.stop h3{font:500 16px/1.35 Inter,sans-serif;color:var(--ink)}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;color:var(--muted);font-size:13px;margin-top:2px}
+.meta > *:not(:first-child)::before{content:"·";margin:0 6px;color:var(--line)}
+.meta svg{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
+.meta .ok{color:var(--ok);font-weight:600}
+.meta .night{color:var(--blue2);font-weight:600}
+.meta .warn{color:var(--coralInk);font-weight:700}
+.meta .nopin{color:var(--warn)}
+.price{text-align:right;font-weight:600;font-size:14px;color:var(--ink2);padding-top:1px}
+.price small{display:block;color:var(--muted);font-weight:500;font-size:12px}
+.more{grid-column:3 / -1;margin-top:8px;display:grid;gap:8px}
+.more .note{font-size:14px;color:var(--ink2);white-space:pre-wrap;overflow-wrap:anywhere;background:var(--card);border-radius:10px;padding:8px 10px;border:1px solid var(--line)}
+.more .acts{display:flex;flex-wrap:wrap;gap:6px}
+.more .btn{min-height:34px;font-size:13px;padding:0 12px}
+.stop .rowacts{position:absolute;right:4px;top:8px;display:flex;gap:2px}
+.rowacts button{width:34px;height:34px;border:0;background:none;color:var(--muted);border-radius:10px;display:grid;place-items:center;opacity:0;transition:opacity .12s}
+.rowacts svg{width:17px;height:17px}
+.stop:hover .rowacts button,.stop.sel .rowacts button,.rowacts button:focus-visible{opacity:1}
+@media(hover:none){.rowacts button{opacity:.7}}
+.rowacts button:hover{background:var(--panel);color:var(--ink)}
+.grip{cursor:grab;touch-action:none}
+.grip svg{fill:currentColor}
+.stop.bad .time{color:var(--coralInk)}
+.ph{border:2px dashed var(--muted);border-radius:14px;background:var(--card2);margin:4px -10px}
+.ghost{position:fixed;z-index:2000;pointer-events:none;background:var(--card);box-shadow:0 16px 40px rgba(0,0,0,.22);border-radius:14px;opacity:.97;zoom:var(--z,1);margin:0!important}
+.ghost .rowacts button{opacity:1}
+.dragging-on{user-select:none;-webkit-user-select:none;cursor:grabbing}
+.dropnote{color:var(--muted);font-size:14px;padding:12px 2px}
+.addday{display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--muted);border:0;background:none;border-radius:10px;min-height:40px;padding:0 6px;font-weight:600;font-size:14px}
+.addday:hover{color:var(--ink);background:var(--card2)}
+.empty{padding:40px 10px;text-align:center;color:var(--muted)}
+.empty h2{color:var(--ink);font-size:24px;margin-bottom:8px}
+.empty .bar{justify-content:center;margin-top:16px}
+.pill{display:inline-flex;align-items:center;border-radius:999px;border:1px solid var(--line);font-size:12px;font-weight:600;padding:3px 10px;background:var(--card);min-height:30px}
+.pill.booked{color:var(--blue2)}.pill.paid{color:var(--ok)}.pill.idea{color:var(--muted);border-style:dashed}
+/* table */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card)}
+.scroll{background:var(--card);border-radius:18px;border:1px solid var(--line);box-shadow:var(--shadow);padding:4px 8px}
+th{text-align:left;font-weight:600;color:var(--muted);padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;font-size:13px}
+th.r,td.r{text-align:right}
+td{padding:10px 8px;border-bottom:1px dashed var(--line);vertical-align:top}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--card2)}
+tfoot td{font-weight:700;border-bottom:0}
+/* budget */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0 18px}
+.kpi{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:18px;padding:14px 16px}
+.kpi b{display:block;font:700 24px Inter,sans-serif;letter-spacing:-.01em}
+.kpi span{font-size:13px;color:var(--muted)}
+.rows{background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:18px;padding:4px 16px 12px;margin-top:14px}
+.rows h3{font-size:17px;margin:14px 0 10px}
+.row{display:grid;grid-template-columns:110px minmax(0,1fr) 110px;gap:10px;align-items:center;padding:5px 0;font-size:14px}
+.track{height:10px;background:var(--panel);border-radius:6px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:6px}
+.ledhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 10px}.ledhead h3{font-size:18px}
+.ledger th.cat{background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--ink);text-align:center;border-bottom:1px solid var(--card);width:96px;white-space:normal;cursor:default;font-size:13px}
+.ledger td.nt{color:var(--muted);font-size:13px;max-width:260px}.ledger small{color:var(--muted)}.ledger tfoot th{text-align:left;color:var(--ink);border:0}
+@media(max-width:600px){.ledger th.cat{width:auto}}
+.warnbox{background:light-dark(#fef7e6,#2b2210);color:var(--warn);border-radius:14px;padding:10px 14px;font-size:14px;margin-bottom:12px}
+/* map */
+.leaflet-container{font:13px Inter,sans-serif;background:var(--water)}
+.prow{position:relative;height:28px}
+.mk{position:absolute;top:0;width:28px;height:28px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#fff;font:700 12px Inter,sans-serif;cursor:pointer;
+  box-shadow:0 0 0 2px light-dark(rgba(255,255,255,.95),rgba(13,17,23,.9)),0 2px 6px rgba(0,0,0,.25);transition:transform .15s;opacity:.94}
+.prow .mk + .mk{box-shadow:0 0 0 2px light-dark(rgba(255,255,255,.95),rgba(13,17,23,.9)),-3px 0 6px rgba(0,0,0,.18)}
+.mk:hover{transform:translateY(-2px);z-index:250!important}
+.mk.sel{opacity:1;transform:scale(1.3);box-shadow:0 0 0 2.5px #fff,0 0 0 6px color-mix(in srgb,var(--c) 35%,transparent),0 3px 10px rgba(0,0,0,.35);animation:pinpop .3s ease-out}
+.lb{position:absolute;top:2px;background:#fff;color:#111418;border-radius:999px;padding:3px 10px;font:600 12.5px Inter,sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.16);max-width:240px;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.lb small{font-weight:500;color:#6b7280;margin-left:5px}
+.lb.on{font-weight:700;box-shadow:0 0 0 2px var(--c),0 3px 10px rgba(0,0,0,.2)}
+@keyframes pinpop{0%{transform:scale(1)}60%{transform:scale(1.5)}100%{transform:scale(1.3)}}
+.clabel{background:none;border:0;box-shadow:none;color:var(--label);font-size:11px;padding:0 0 0 4px;font-weight:500;text-shadow:0 0 3px var(--land),0 0 3px var(--land)}
+.clabel::before{display:none}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card);color:var(--ink)}
+.leaflet-bar{border:0!important;box-shadow:var(--shadow)!important;border-radius:12px!important;overflow:hidden}
+.leaflet-bar a{background:var(--card);color:var(--ink);border-color:var(--line)}
+.maplegend{position:absolute;left:12px;bottom:12px;z-index:500;background:var(--card);border-radius:999px;padding:6px 12px;font-size:12px;box-shadow:var(--shadow);display:flex;flex-wrap:wrap;gap:4px 12px;max-width:calc(100% - 24px);color:var(--ink2)}
+.maplegend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.maplegend i{width:9px;height:9px;border-radius:50%;display:block}
+.mapnote{position:absolute;right:12px;bottom:12px;z-index:500;font-size:10.5px;color:var(--muted);background:var(--card);padding:2px 8px;border-radius:999px;opacity:.85}
+.leaflet-control-attribution{border-radius:999px 0 0 0;font-size:10px}
+.picking #map{cursor:crosshair}
+.pickbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:1200;background:var(--ink);color:var(--bg);border-radius:999px;padding:6px 6px 6px 18px;display:none;align-items:center;gap:12px;box-shadow:0 6px 24px rgba(0,0,0,.3);max-width:calc(100% - 20px)}
+.picking .pickbar{display:flex}
+.pickbar .btn{background:transparent;color:inherit;border-color:rgba(127,127,127,.5)}
+/* dialogs */
+dialog{border:0;border-radius:16px;padding:0;background:var(--bg);color:var(--ink);width:min(calc(560px * var(--z,1)),calc(100% - 20px));max-height:min(92dvh,920px);box-shadow:0 20px 60px rgba(0,0,0,.35);overflow:hidden}
+dialog[open]{display:flex;flex-direction:column}
+dialog::backdrop{background:rgba(8,18,30,.55)}
+.dlg{zoom:var(--z,1);padding:0 20px;display:grid;gap:14px;overflow-y:auto;overscroll-behavior:contain;min-height:0;flex:1 1 auto;align-content:start}
+.dhead{position:sticky;top:0;z-index:3;background:var(--bg);display:flex;align-items:center;gap:10px;padding:16px 0 10px;margin-bottom:-4px;border-bottom:1px solid var(--line)}
+.dhead h2{font-size:24px;flex:1}
+.x{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;font-size:24px;line-height:1;color:var(--ink)}
+.x:hover{border-color:var(--ink)}
+.dlg > .foot{position:sticky;bottom:0;z-index:3;background:var(--bg);padding:12px 0 16px;margin-top:2px}
+@media(max-width:600px){dialog{width:100%;max-width:100%;max-height:94dvh;margin:auto 0 0;border-radius:16px 16px 0 0}}
+.band,.panel,.toast,.pickbar{zoom:var(--z,1)}
+.compact .stop{padding-top:7px;padding-bottom:7px}.compact .meta{display:none}.compact .day{margin-top:10px}.compact .stop h3{font-size:15px}
+.time .ap{font:600 11px Inter,sans-serif;margin-left:2px;color:var(--muted)}
+.h12 .stop{grid-template-columns:92px 34px minmax(0,1fr) auto}
+.setgrid{display:grid;gap:16px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;min-height:40px;padding:0 14px;font-weight:600;font-size:14px}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:15px;min-height:44px}
+.setrow small{display:block;color:var(--muted);font-size:13px}
+.sw{position:relative;width:48px;height:28px;flex:none}.sw input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:1}
+.sw i{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:.15s}.sw i::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:.15s}
+.sw input:checked+i{background:var(--coral)}.sw input:checked+i::after{transform:translateX(20px)}.sw input:focus-visible+i{outline:3px solid var(--blue2);outline-offset:2px}
+.setsec{font:700 13px Inter,sans-serif;color:var(--muted);margin:6px 0 -6px}
+.preview{border:1px dashed var(--line);border-radius:10px;padding:10px 12px;font-size:15px}
+.ck{list-style:none;margin:8px 0 0;padding:0}
+.ck li{display:flex;align-items:center;gap:12px;padding:6px 4px;border-bottom:1px solid var(--line);min-height:48px}
+.ck label{flex:1;display:flex;align-items:center;gap:12px;cursor:pointer}
+.ck input[type=checkbox]{width:22px;height:22px;accent-color:var(--coral);flex:none}
+.ck .done span{text-decoration:line-through;color:var(--muted)}
+.ck .del{border:0;background:none;color:var(--muted);width:40px;height:40px;font-size:20px;border-radius:8px}.ck .del:hover{color:var(--coralInk);background:var(--panel)}
+.ckbar{display:flex;gap:8px;flex-wrap:wrap}.ckbar input{flex:1;min-width:160px;min-height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--card);font-size:16px}
+.ckprog{height:8px;border-radius:8px;background:var(--panel);overflow:hidden;margin:10px 0 4px}.ckprog i{display:block;height:100%;background:var(--ok)}
+.dlg > .dhead + *{margin-top:4px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.grid3{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:12px}
+label.f{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
+.f input,.f select,.f textarea{min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);font-size:16px;font-weight:400;color:var(--ink);width:100%}
+.f textarea{min-height:76px;resize:vertical}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.cats label{cursor:pointer}
+.cats input{position:absolute;opacity:0;pointer-events:none}
+.cats span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 12px;min-height:38px;font-size:14px;font-weight:600;color:var(--ink)}
+.cats span i{width:10px;height:10px;border-radius:50%}
+.cats input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.cats input:focus-visible+span{outline:3px solid var(--blue2)}
+.placebox{position:relative}
+.sugg{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;display:none}
+.sugg button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;min-height:44px;font-size:15px}
+.sugg button:hover,.sugg button.on{background:var(--panel)}
+.sugg small{color:var(--muted)}
+.coord{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.coord .btn{min-height:38px;font-size:14px;padding:0 12px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--muted);cursor:pointer}.check input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--coral)}
+form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!important}
+.foot{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:14px}
+.foot .l{margin-right:auto}
+.maptbl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:8px 12px;align-items:center;font-size:14px}
+.maptbl select{min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--card);padding:0 8px}
+.hint{font-size:13px;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(30px);opacity:0;transition:.2s;z-index:1300;background:var(--ink);color:var(--bg);border-radius:12px;padding:6px 6px 6px 16px;display:flex;gap:10px;align-items:center;pointer-events:none;max-width:calc(100% - 20px)}
+.toast.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
+.toast button{background:none;border:0;color:var(--coral);font-weight:700;min-height:40px;padding:0 12px}
+.ro .needw{display:none!important}
+@media(max-width:900px){
+ .layout{grid-template-columns:minmax(0,1fr)}
+ .mapwrap{position:relative;height:44vh;min-height:300px;padding:10px 10px 0;order:-1}
+ .mapcard{border-radius:18px}
+}
+@media(max-width:600px){
+ .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
+ .stop,.h12 .stop{grid-template-columns:44px 24px minmax(0,1fr);gap:0 10px;padding-right:72px}
+ .stop .price{grid-column:3;text-align:left;margin-top:2px}.price small{display:inline;margin-left:6px}
+ .time{font-size:14px}.day{padding:4px 14px 8px;border-radius:18px}
+ .band select{font-size:17px;max-width:62vw}
+ .bar{gap:6px}.tripsel{flex:1 0 100%;order:-1}.band select{max-width:100%;width:100%}.band .ib{width:38px;height:38px}.band .ib svg{width:17px;height:17px}.spacer{display:none}.sync{order:9;margin-left:auto}
+ .sync{font-size:0;gap:0}
+ .facts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-14px;padding-right:14px}.facts::-webkit-scrollbar{display:none}
+ .brand{display:none}
+ .row{grid-template-columns:84px minmax(0,1fr) 84px}
+ .band .btn .lbl{display:none}
+ table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6.5em;margin-inline-start:-7em;color:var(--muted)}.stack td:empty{display:none}.stack tfoot td::before{content:""}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="bar">
+    <div class="brand" title="PointPlan"><i></i><span>PointPlan</span></div>
+    <div class="tripsel"><select id="tripSel" aria-label="Choose trip"></select></div>
+    <span class="spacer"></span>
+    <span class="sync" id="sync">Loading…</span>
+    <button class="btn ib needw" id="newTrip" title="New trip" aria-label="New trip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="btn ib needw" id="editTrip" title="Trip settings" aria-label="Trip settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button>
+    <button class="btn ib needw" id="importBtn" title="Import Excel" aria-label="Import Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg></button>
+    <button class="btn ib" id="exportBtn" title="Export to Excel" aria-label="Export to Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 17v3h16v-3"/></svg></button>
+    <button class="btn ib" id="setBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+  </div>
+  <div class="facts" id="tripBar"></div>
+</header>
+
+<main class="layout">
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="itin" aria-selected="true">Itinerary</button>
+      <button role="tab" data-tab="table" aria-selected="false">Table</button>
+      <button role="tab" data-tab="budget" aria-selected="false">Budget</button>
+      <button role="tab" data-tab="check" aria-selected="false">Checklist</button>
+    </div>
+    <div class="days" id="days"></div>
+    <div class="tools">
+      <input id="q" type="search" placeholder="Search stops, places, notes" aria-label="Search">
+      <button class="btn primary needw" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>Add stop</button>
+    </div>
+    <div id="view"></div>
+  </section>
+  <section class="mapwrap">
+    <div class="mapcard"><div id="map"></div>
+    <div class="maplegend" id="legend" hidden></div>
+    <div class="mapnote" id="mapnote">Map data: Natural Earth, GeoNames</div></div>
+  </section>
+</main>
+
+<div class="pickbar" id="pickbar"><span>Tap the map to set this stop's location</span><button class="btn" id="pickCancel">Cancel</button></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastBtn">Undo</button></div>
+<input type="file" id="fileIn" accept=".xlsx,.xls,.csv,.ods" hidden>
+
+<dialog id="itemDlg"><form class="dlg" id="itemForm" method="dialog">
+  <div class="dhead"><h2 id="itemTitle">Add stop</h2><button type="button" class="x" data-close aria-label="Close">×</button></div>
+  <label class="f">Name<input name="title" required placeholder="e.g. Fushimi Inari shrine" autocomplete="off"></label>
+  <div class="cats" id="catPick"></div>
+  <label class="check"><input type="checkbox" name="expense" id="expChk"> Budget only, not a stop on the itinerary (flights total, insurance, WiFi card, ETC pass…)</label>
+  <label class="f onlyexp">Covers 日期<input name="span" placeholder="e.g. 2/24-3/3, 8 days"></label>
+  <div class="grid3">
+    <label class="f">Date<input type="date" name="date"></label>
+    <label class="f">Start<input type="time" name="time"></label>
+    <label class="f">End<input type="time" name="end"></label>
+  </div>
+  <div class="grid2 nostop">
+    <label class="f">Getting here 車程<input name="drive" placeholder="e.g. 1.5H, 40min"></label>
+    <label class="f">Time there 停留時間<input name="stay" placeholder="e.g. 3H"></label>
+  </div>
+  <div class="placebox nostop">
+    <label class="f">Place<input name="place" placeholder="Search a city, or type an address" autocomplete="off"></label>
+    <div class="sugg" id="sugg"></div>
+  </div>
+  <div class="coord nostop"><span id="coordTxt">No location yet</span>
+    <button type="button" class="btn" id="pickMap">Pick on map</button>
+    <button type="button" class="btn" id="askClaude" hidden>Find with Claude</button>
+    <button type="button" class="btn" id="webFind" hidden>Search online</button>
+    <button type="button" class="btn ghost" id="clearCoord">Clear</button>
+  </div>
+  <div class="grid3">
+    <label class="f">Price 費用<input name="price" inputmode="decimal" placeholder="0"></label>
+    <label class="f">Currency<select name="currency" id="curSel"></select></label>
+    <label class="f">× Qty<input name="qty" inputmode="numeric" placeholder="1"></label>
+  </div>
+  <div class="grid3">
+    <label class="f">Status<select name="status"><option value="idea">Idea</option><option value="planned">Planned</option><option value="booked">Booked</option><option value="paid">Paid</option></select></label>
+  </div>
+  <label class="f">Link<input name="link" type="url" placeholder="Booking or website URL"></label>
+  <label class="f">Notes<textarea name="notes" placeholder="Confirmation number, what to bring, opening hours…"></textarea></label>
+  <div class="foot">
+    <button type="button" class="btn danger l" id="delItem">Delete</button>
+    <button type="button" class="btn" id="dupItem">Duplicate</button>
+    <button type="button" class="btn" value="cancel" id="cancelItem">Cancel</button>
+    <button type="submit" class="btn primary">Save</button>
+  </div>
+</form></dialog>
+
+<dialog id="tripDlg"><form class="dlg" id="tripForm" method="dialog">
+  <div class="dhead"><h2 id="tripTitle">New trip</h2><button type="button" class="x" data-close aria-label="Close">×</button></div>
+  <label class="f">Trip name<input name="name" required placeholder="e.g. Kyoto & Osaka"></label>
+  <div class="grid2">
+    <label class="f">Start date<input type="date" name="start"></label>
+    <label class="f">End date<input type="date" name="end"></label>
+  </div>
+  <div class="grid2">
+    <label class="f">Home currency<select name="currency" id="homeCur"></select></label>
+    <label class="f">Budget (home currency)<input name="budget" inputmode="decimal" placeholder="Optional"></label>
+  </div>
+  <label class="f">Travelers 人數 (for the per-person average)<input name="people" inputmode="numeric" placeholder="1"></label>
+  <label class="f">Exchange rates, one per line: 1 unit = how much home currency<textarea name="rates" placeholder="JPY = 0.21&#10;USD = 32.4"></textarea></label>
+  <div class="foot">
+    <button type="button" class="btn danger l" id="delTrip">Delete trip</button>
+    <button type="button" class="btn" id="dupTrip">Duplicate trip</button>
+    <button type="button" class="btn" id="cancelTrip">Cancel</button>
+    <button type="submit" class="btn primary">Save trip</button>
+  </div>
+</form></dialog>
+
+<dialog id="importDlg"><div class="dlg">
+  <div class="dhead"><h2>Import from Excel</h2><button type="button" class="x" data-close aria-label="Close">×</button></div>
+  <p class="hint" id="impInfo"></p>
+  <div class="grid2">
+    <label class="f">Sheet<select id="impSheet"></select></label>
+    <label class="f">Into trip<select id="impTarget"></select></label>
+  </div>
+  <div class="maptbl" id="impMap"></div>
+  <div class="scroll"><table id="impPrev"></table></div>
+  <div class="foot">
+    <button type="button" class="btn" id="impCancel">Cancel</button>
+    <button type="button" class="btn primary" id="impGo">Import</button>
+  </div>
+</div></dialog>
+
+<dialog id="setDlg"><div class="dlg">
+  <div class="dhead"><h2>Settings</h2><button type="button" class="x" data-close aria-label="Close">×</button></div>
+  <div class="setgrid">
+    <div class="setsec">Display</div>
+    <div><div class="setrow"><span>Theme</span></div><div class="seg" id="setTheme"></div></div>
+    <div><div class="setrow"><span>Text size</span></div><div class="seg" id="setText"></div></div>
+    <div class="preview" id="setPreview">Day 3 · 07:30 · Ice waterfall walk 冰瀑行走 · ¥7,000 × 2</div>
+    <div><div class="setrow"><span>Time format</span></div><div class="seg" id="setClock"></div></div>
+    <div><div class="setrow"><span>Date language</span></div><div class="seg" id="setLang"></div></div>
+    <label class="setrow"><span>Compact list<small>Tighter rows, hides notes in the itinerary</small></span><span class="sw"><input type="checkbox" id="setCompact"><i></i></span></label>
+    <div class="setsec">Trips and stops</div>
+    <label class="setrow"><span>Hide ideas<small>Hide stops marked Idea from the itinerary and map</small></span><span class="sw"><input type="checkbox" id="setIdeas"><i></i></span></label>
+    <label class="setrow"><span>Show completed trips<small>List trips that already ended in the trip menu</small></span><span class="sw"><input type="checkbox" id="setPast"><i></i></span></label>
+    <div class="setsec">Map</div>
+    <label class="setrow"><span>Route lines between stops</span><span class="sw"><input type="checkbox" id="setRoutes"><i></i></span></label>
+    <label class="setrow"><span>City names on the map</span><span class="sw"><input type="checkbox" id="setLabels"><i></i></span></label>
+    <div class="setsec">Your data</div>
+    <div class="setrow"><span>Backup<small>All trips, stops and checklists in one file. Keep a copy, or move your trips to another device.</small></span></div>
+    <div class="seg"><button type="button" id="backupBtn">Download backup</button><button type="button" id="restoreBtn" class="needw">Restore from backup</button></div>
+    <input type="file" id="restoreIn" accept=".json,application/json" hidden>
+    <p class="hint">Settings are saved on this device.</p>
+  </div>
+  <div class="foot"><button type="button" class="btn" id="setReset">Reset to defaults</button><button type="button" class="btn primary" data-close>Done</button></div>
+</div></dialog>
+
+<dialog id="confirmDlg"><div class="dlg">
+  <div class="dhead"><h2 id="cfTitle">Are you sure?</h2></div><p id="cfMsg" class="hint"></p>
+  <div class="foot"><button class="btn" id="cfNo">Cancel</button><button class="btn primary" id="cfYes">Delete</button></div>
+</div></dialog>
+
+<script src="vendor/leaflet.js"></script>
+<script src="vendor/topojson-client.min.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script>
+{
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+const IC = {
+  flight:'<path d="M2 13l8-1 5-8h2l-2 8 5 1 2-2h2l-1 4 1 4h-2l-2-2-5 1 2 8h-2l-5-8-8-1z" fill="currentColor"/>',
+  transport:'<rect x="5" y="3" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 11h14M8 21l2-4m6 4-2-4" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="14" r="1.2" fill="currentColor"/><circle cx="15" cy="14" r="1.2" fill="currentColor"/>',
+  stay:'<path d="M3 19V6m0 8h18v5m-18-3h18M7 11a2 2 0 1 0 0-.1M11 11h8a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/>',
+  food:'<path d="M7 3v8m-3-8v5a3 3 0 0 0 6 0V3M7 11v10m10-18c-2 2-3 5-3 8h3v10" fill="none" stroke="currentColor" stroke-width="2"/>',
+  activity:'<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z" fill="currentColor"/>',
+  shopping:'<path d="M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="2"/>',
+  other:'<circle cx="12" cy="10" r="3" fill="currentColor"/><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z" fill="none" stroke="currentColor" stroke-width="2"/>'
+};
+Object.assign(IC, {
+  tickets:'<path d="M3 7h18v3a2 2 0 0 0 0 4v3H3v-3a2 2 0 0 0 0-4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 7v10" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/>',
+  outdoor:'<path d="M2 20l7-12 4 6 3-4 6 10z" fill="currentColor"/>',
+  toll:'<path d="M8 3 5 21M16 3l3 18M12 4v3m0 4v3m0 4v3" fill="none" stroke="currentColor" stroke-width="2"/>',
+  wifi:'<path d="M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/>',
+  insurance:'<path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill="none" stroke="currentColor" stroke-width="2"/>'
+});
+// Same categories as the 預算表 in the trip sheet
+const CATS = {flight:['Flight 機票','#3a6fd8'],stay:['Stay 住宿','#0e8a8c'],transport:['Transport 交通','#7b5cf0'],toll:['ETC pass 高速','#8a63b8'],tickets:['Tickets 門票','#2b8fd6'],outdoor:['Outdoor 戶外','#2f9e44'],activity:['Sightseeing 景點','#ff5a3c'],food:['Food 餐費','#e07b2c'],shopping:['Shopping 購物','#c4479a'],wifi:['WiFi/SIM 網卡','#4a90a4'],insurance:['Insurance 保險','#b08900'],other:['Other 其他','#6b7785']};
+const DAYC = ['#e8442a','#1d6aa8','#0e8a8c','#c4479a','#d99a00','#7b5cf0','#2f9e44','#8a5a2b','#3b5bdb','#5f6b78'];
+const CURS = ['TWD','JPY','USD','EUR','KRW','HKD','CNY','THB','SGD','MYR','VND','PHP','IDR','GBP','AUD','CAD','MXN','CHF'];
+const STAT = {idea:'Idea',planned:'Planned',booked:'Booked',paid:'Paid'};
+const icon = (c, cls='') => `<svg viewBox="0 0 24 24" class="${cls}">${IC[c]||IC.other}</svg>`;
+const ls = {get(k){try{return JSON.parse(localStorage.getItem('pp.'+k))}catch(e){return null}}, set(k,v){try{localStorage.setItem('pp.'+k,JSON.stringify(v))}catch(e){}}};
+
+const SET_DEF = {theme:'auto', text:100, clock:'24', lang:'en', compact:false, hideIdeas:false, showPast:true, routes:true, labels:true};
+const SET = Object.assign({}, SET_DEF, ls.get('settings') || {});
+const LOCALE = () => ({en:'en-US', zh:'zh-TW', es:'es-ES'})[SET.lang] || 'en-US';
+// theme: 'light' (white), 'dark', or 'auto' (follow the app/device)
+const ROOT = document.documentElement; let viewerTheme = ROOT.getAttribute('data-theme');
+function applyTheme(){
+  const want = SET.theme === 'auto' ? viewerTheme : SET.theme;
+  if((ROOT.getAttribute('data-theme') || null) === (want || null)) return;
+  want ? ROOT.setAttribute('data-theme', want) : ROOT.removeAttribute('data-theme');
+}
+function applySettings(){
+  applyTheme();
+  document.documentElement.style.setProperty('--z', SET.text / 100);
+  document.body.classList.toggle('compact', SET.compact);
+  document.body.classList.toggle('h12', SET.clock === '12');
+}
+const S = {trips:[], items:[], tripId: ls.get('trip'), day:'all', tab: ls.get('tab') || 'itin', q:'', sort:{k:'date',d:1}, sel:null, mode:'loading', canWrite:true, sample:null, downloads:null};
+
+/* ---------- dates & money ---------- */
+const pd = s => { if(!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const fd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayS = fd(new Date());
+const fmtDay = (s, o={weekday:'short', month:'short', day:'numeric'}) => pd(s).toLocaleDateString(LOCALE(), o);
+const hm = t => { const [h,m] = t.split(':').map(Number); return [h, String(m || 0).padStart(2,'0')]; };
+const fmtTime = t => { if(!t) return ''; const [h,m] = hm(t); return SET.clock === '12' ? `${h % 12 || 12}:${m} ${h < 12 ? 'AM' : 'PM'}` : `${h}:${m}`; };
+const timeHTML = t => { const [h,m] = hm(t); return SET.clock === '12' ? `${h % 12 || 12}:${m}<span class="ap">${h < 12 ? 'AM' : 'PM'}</span>` : `${h}:${m}`; };
+const trip = () => S.trips.find(t => t.id === S.tripId);
+const tripItems = () => S.items.filter(i => i.tripId === S.tripId);
+const tripStops = () => tripItems().filter(i => !i.expense);
+const home = () => trip()?.currency || 'TWD';
+const rate = (cur, t = trip()) => { if(!t || !cur || cur === t.currency) return 1; const r = t.rates?.[cur]; return r ? +r : null; };
+const amt = it => (+it.price || 0) * (+it.qty || 1);
+const toHome = it => { const p = amt(it); if(!p) return 0; const r = rate(it.currency || home()); return r == null ? null : p * r; };
+const money = (v, cur = home()) => { if(v == null || isNaN(v)) return '—'; try { return new Intl.NumberFormat('en-US', {style:'currency', currency:cur, maximumFractionDigits: Math.abs(v) >= 100 || ['JPY','KRW','TWD','VND','IDR'].includes(cur) ? 0 : 2}).format(v); } catch(e){ return `${cur} ${Math.round(v).toLocaleString()}`; } };
+const byTime = (a,b) => (a.time||'99').localeCompare(b.time||'99') || (a.created||0) - (b.created||0);
+const hasOrd = i => typeof i.order === 'number';
+function dayOrdered(list){
+  const timed = list.slice().sort(byTime);
+  if(!list.some(hasOrd)) return timed;
+  const out = list.filter(hasOrd).sort((a,b) => a.order - b.order || byTime(a,b));
+  timed.filter(i => !hasOrd(i)).forEach(i => { const k = i.time ? out.findIndex(x => x.time && x.time > i.time) : -1; k < 0 ? out.push(i) : out.splice(k, 0, i); });
+  return out;
+}
+const sortItems = arr => { const g = new Map(); arr.forEach(i => { const k = i.date || ''; if(!g.has(k)) g.set(k, []); g.get(k).push(i); });
+  return [...g.keys()].sort((a,b) => (a||'9999').localeCompare(b||'9999')).flatMap(k => dayOrdered(g.get(k))); };
+// a stop whose start time is earlier than a stop placed before it on the same day
+function timeIssues(list){ const bad = new Map(); let last = null;
+  list.forEach(i => { if(!i.time) return; if(last && i.time < last.time) bad.set(i.id, `Starts before “${last.title}” (${fmtTime(last.time)}). Change the time or move it.`);
+    else if(i.end && i.end < i.time && i.category !== 'flight') bad.set(i.id, 'Ends before it starts.');
+    if(!last || i.time > last.time) last = i; });
+  return bad; }
+const tripDays = () => {
+  const t = trip(); const set = new Set();
+  if(t?.start && t?.end){ for(let d = pd(t.start), e = pd(t.end), n = 0; d <= e && n < 120; d.setDate(d.getDate()+1), n++) set.add(fd(d)); }
+  tripStops().forEach(i => i.date && set.add(i.date));
+  return [...set].sort();
+};
+const dayColor = d => DAYC[Math.max(0, tripDays().indexOf(d)) % DAYC.length];
+const km = (a, b) => { const R = 6371, r = x => x*Math.PI/180, dLa = r(b.lat-a.lat), dLo = r(b.lng-a.lng); const h = Math.sin(dLa/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLo/2)**2; return 2*R*Math.asin(Math.sqrt(h)); };
+const stopColor = i => i.date && trip() ? dayColor(i.date) : '#6b7785';
+function seqMap(){ const m = new Map(); let n = 0; sortItems(tripStops().filter(i => !(SET.hideIdeas && i.status === 'idea'))).forEach(i => { if(hasPin(i) && i.date) m.set(i.id, ++n); }); return m; }
+const hasPin = i => typeof i.lat === 'number' && typeof i.lng === 'number' && !isNaN(i.lat);
+
+/* ---------- storage: Claude db when available, browser storage otherwise ---------- */
+let db = null; const chains = new Map();
+function queue(path, fn){ const p = (chains.get(path) || Promise.resolve()).then(fn).catch(e => { console.warn(e); if(e?.code === 'invalid_argument' && S.mode === 'db'){ S.canWrite = false; render(); toast('You can view this planner but not edit it.'); } else toast('Could not save: ' + (e?.message || 'unknown error')); }); chains.set(path, p); return p; }
+function persistLocal(){ if(S.mode === 'local') ls.set('data', {trips:S.trips, items:S.items}); }
+function clean(o){ const r = {}; for(const [k,v] of Object.entries(o)) if(v !== undefined && !(typeof v === 'number' && isNaN(v))) r[k] = v; return r; }
+const Store = {
+  saveTrip(t){ t = clean(t); const i = S.trips.findIndex(x => x.id === t.id); if(i >= 0) S.trips[i] = t; else S.trips.push(t);
+    if(S.mode === 'db') queue('trips/'+t.id, () => db.doc('trips/'+t.id).set(t)); else persistLocal(); render(); },
+  delTrip(id){ const its = S.items.filter(i => i.tripId === id); S.trips = S.trips.filter(t => t.id !== id); S.items = S.items.filter(i => i.tripId !== id);
+    if(S.mode === 'db'){ queue('trips/'+id, () => db.doc('trips/'+id).delete()); its.forEach(i => queue('items/'+i.id, () => db.doc('items/'+i.id).delete())); } else persistLocal(); render(); },
+  saveItem(it, quiet){ it = clean(it); const i = S.items.findIndex(x => x.id === it.id); if(i >= 0) S.items[i] = it; else S.items.push(it);
+    if(S.mode === 'db') queue('items/'+it.id, () => db.doc('items/'+it.id).set(it)); else persistLocal(); if(!quiet) render(); },
+  delItem(id){ S.items = S.items.filter(i => i.id !== id); if(S.mode === 'db') queue('items/'+id, () => db.doc('items/'+id).delete()); else persistLocal(); render(); }
+};
+let localNote = '';
+function showSync(){ if(S.mode !== 'local') return; const el = $('#sync'); el.textContent = localNote || (navigator.onLine ? 'Saved on this device' : 'Offline · saved on this device'); el.classList.toggle('off', !navigator.onLine); }
+addEventListener('online', showSync); addEventListener('offline', showSync);
+function startLocal(note){
+  S.mode = 'local'; const d = ls.get('data'); if(d){ S.trips = d.trips || []; S.items = d.items || []; }
+  localNote = note || ''; showSync();
+  render(true);
+}
+async function boot(){
+  render(true);
+  if(!window.claude || typeof window.claude.use !== 'function'){ startLocal(); return; }
+  claude.use('sample').then(s => { S.sample = s; $('#askClaude').hidden = !s; });
+  claude.use('downloads').then(d => { S.downloads = d; });
+  db = await claude.use('db');
+  if(!db){ startLocal(); return; }
+  S.mode = 'db';
+  const user = await claude.use('user');
+  if(user){ try { const w = await user.can('data.write'); if(w === false) S.canWrite = false; } catch(e){} }
+  let gotT = false, gotI = false;
+  const timer = setTimeout(() => { if(!(gotT && gotI)) $('#sync').textContent = 'Can’t reach saved data yet'; }, 10000);
+  const done = () => { if(gotT && gotI){ clearTimeout(timer); $('#sync').textContent = S.canWrite ? 'Saved to your planner' : 'View only'; } };
+  let first = true;
+  db.collection('trips').onSnapshot(s => { S.trips = s.docs.map(d => ({...d.data(), id:d.id})); if(!s.metadata.fromCache) gotT = true; done(); render(first && gotI); if(gotI) first = false; }, e => { clearTimeout(timer); $('#sync').textContent = 'Saved data unavailable'; });
+  db.collection('items').onSnapshot(s => { S.items = s.docs.map(d => ({...d.data(), id:d.id})); if(!s.metadata.fromCache) gotI = true; done(); render(first && gotT); if(gotT) first = false; }, e => { clearTimeout(timer); $('#sync').textContent = 'Saved data unavailable'; });
+}
+
+/* ---------- rendering ---------- */
+function render(fit){
+  document.body.classList.toggle('ro', !S.canWrite);
+  if(!trip() && S.trips.length){ const byStart = S.trips.slice().sort((a,b) => (a.start||'').localeCompare(b.start||'')); S.tripId = (byStart.find(t => (t.end || t.start || '') >= todayS) || byStart[byStart.length-1]).id; }
+  if(S.day !== 'all' && S.day !== 'none' && !tripDays().includes(S.day)) S.day = 'all';
+  renderTripSel(); renderTripBar(); renderDays(); renderTabs(); renderView(); renderMap(fit);
+}
+function renderTripSel(){
+  const sel = $('#tripSel');
+  const listT = S.trips.filter(t => SET.showPast || t.id === S.tripId || !((t.end || t.start) && (t.end || t.start) < todayS));
+  sel.innerHTML = S.trips.length ? listT.slice().sort((a,b) => (a.start||'').localeCompare(b.start||'')).map(t => `<option value="${t.id}" ${t.id === S.tripId ? 'selected':''}>${esc(t.name)}</option>`).join('') : '<option>No trips yet</option>';
+  sel.disabled = !S.trips.length; $('#editTrip').disabled = !trip(); $('#exportBtn').disabled = !trip();
+}
+const FI = {
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  ppl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg>',
+  money:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="3"/><circle cx="12" cy="12.5" r="2.5"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'};
+function renderTripBar(){
+  const t = trip(), el = $('#tripBar');
+  if(!t){ el.innerHTML = S.mode === 'loading' ? '' : `<span class="fact">Plan your next trip: days, stops, prices and a map in one place.</span>`; return; }
+  const its = tripItems(), total = its.reduce((s,i) => s + (toHome(i) || 0), 0);
+  const nights = t.start && t.end ? Math.round((pd(t.end) - pd(t.start)) / 864e5) : null;
+  let when = '';
+  if(t.start){ const dd = Math.round((pd(t.start) - pd(todayS)) / 864e5); const de = t.end ? Math.round((pd(t.end) - pd(todayS)) / 864e5) : dd;
+    when = dd > 0 ? `Leaves in <b>${dd}</b> day${dd === 1 ? '' : 's'}` : de >= 0 ? '<b>Happening now</b>' : 'Completed'; }
+  const range = t.start ? `${fmtDay(t.start, {month:'short', day:'numeric'})}${t.end ? ' – ' + fmtDay(t.end, {month:'short', day:'numeric', year:'numeric'}) : ''}` : 'No dates yet';
+  const b = +t.budget || 0, ppl = +t.people || 1;
+  el.innerHTML = [
+    `<span class="fact">${FI.cal}<b>${range}</b>${nights != null ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}</span>`,
+    ppl > 1 ? `<span class="fact">${FI.ppl}<b>${ppl}</b> travelers</span>` : '',
+    `<span class="fact ${b && total > b ? 'over' : ''}">${FI.money}<b class="num">${money(total)}</b>${b ? ` of ${money(b)}` : ''}${ppl > 1 ? ` · ${money(total / ppl)} each` : ''}</span>`,
+    `<span class="fact">${FI.pin}<b>${its.filter(i => !i.expense).length}</b> stops</span>`,
+    when ? `<span class="fact">${FI.clock}${when}</span>` : ''].join('');
+}
+function renderDays(){
+  const el = $('#days'); if(!trip()){ el.innerHTML = ''; return; }
+  const days = tripDays(), un = tripStops().some(i => !i.date);
+  el.innerHTML = `<button class="chip" data-day="all" aria-pressed="${S.day === 'all'}">All days</button>` +
+    days.map((d, n) => `<button class="chip" data-day="${d}" aria-pressed="${S.day === d}"><i style="background:${DAYC[n % DAYC.length]}"></i>Day ${n+1} · ${fmtDay(d, {weekday:'short', day:'numeric'})}</button>`).join('') +
+    (un ? `<button class="chip" data-day="none" aria-pressed="${S.day === 'none'}">Unscheduled</button>` : '');
+}
+function renderTabs(){ document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab)); const side = S.tab === 'budget' || S.tab === 'check'; $('#days').hidden = side; document.querySelector('.tools').hidden = side || !trip(); }
+function visibleItems(){
+  const q = S.q.trim().toLowerCase();
+  return sortItems((S.tab === 'table' ? tripItems() : tripStops()).filter(i => !(SET.hideIdeas && i.status === 'idea' && S.tab !== 'table')).filter(i => (S.day === 'all' || (S.day === 'none' ? !i.date : i.date === S.day)) && (!q || [i.title, i.place, i.notes, CATS[i.category]?.[0]].join(' ').toLowerCase().includes(q))));
+}
+function renderView(){
+  const v = $('#view');
+  if(!trip()){
+    v.innerHTML = S.mode === 'loading' ? '<div class="empty">Loading…</div>' : `<div class="empty"><h2>No trips yet</h2><p>Create a trip, bring in the spreadsheet you already use, or start from a sample.</p>
+     <div class="bar needw"><button class="btn primary" data-act="newtrip">Create a trip</button><button class="btn" data-act="import">Import Excel</button><button class="btn" data-act="sample">Load sample trip</button></div></div>`;
+    return;
+  }
+  if(S.tab === 'itin') v.innerHTML = itinHTML(); else if(S.tab === 'table') v.innerHTML = tableHTML(); else if(S.tab === 'check') v.innerHTML = checkHTML(); else v.innerHTML = budgetHTML();
+}
+function priceHTML(i){
+  if(!+i.price) return '<div class="price"></div>';
+  const cur = i.currency || home(), h = toHome(i), q = +i.qty || 1;
+  return `<div class="price num">${money(+i.price, cur)}${q > 1 ? ' × ' + q : ''}${cur !== home() || q > 1 ? `<small>${h == null ? 'no rate' : (cur !== home() ? '≈ ' : '= ') + money(h)}</small>` : ''}</div>`;
+}
+const nightOf = i => i.category === 'stay' && i.date && trip()?.start ? Math.round((pd(i.date) - pd(trip().start)) / 864e5) + 1 : null;
+const kmTxt = k => k < 1 ? Math.round(k*1000) + ' m' : k.toFixed(k < 10 ? 1 : 0) + ' km';
+const PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>';
+const GRIP = '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+function stopHTML(i, prev, fromNight, bad){
+  const c = CATS[i.category] || CATS.other, col = stopColor(i), num = SEQ.get(i.id), sel = S.sel === i.id, canDrag = S.canWrite && !S.q;
+  const meta = [`<span>${icon(i.category)}${esc(c[0].split(' ')[0])}</span>`];
+  if(i.place) meta.push(`<span>${esc(i.place)}</span>`);
+  const leg = []; if(i.drive) leg.push(`${i.category === 'flight' ? 'Flight' : 'Drive'} ${esc(i.drive)}`);
+  if(prev && hasPin(prev) && hasPin(i)){ const k = km(prev, i); if(k >= 0.05) leg.push(kmTxt(k) + (fromNight ? ' from last night' : '')); }
+  if(leg.length) meta.push(`<span>${leg.join(', ')}</span>`);
+  const n = nightOf(i); if(n > 0) meta.push(`<span class="night">Night ${n}</span>`);
+  if(i.stay) meta.push(`<span>Stay ${esc(i.stay)}</span>`);
+  if(i.status === 'booked' || i.status === 'paid') meta.push(`<span class="ok">✓ ${STAT[i.status]}</span>`);
+  if(i.status === 'idea') meta.push(`<span>Idea</span>`);
+  if(bad) meta.push(`<span class="warn" title="${esc(bad)}">Check time</span>`);
+  if(!hasPin(i)) meta.push(`<span class="nopin">Not on map</span>`);
+  const more = sel ? `<div class="more">${i.notes ? `<div class="note">${esc(i.notes)}</div>` : ''}${bad ? `<div class="meta"><span class="warn">${esc(bad)}</span></div>` : ''}
+    <div class="acts"><button class="btn needw" data-edit-row="${i.id}">${PEN}Edit</button><button class="pill ${i.status || 'planned'} needw" data-cycle="${i.id}" title="Change status">${STAT[i.status || 'planned']}</button>${i.link ? `<a class="pill" href="${esc(i.link)}" target="_blank" rel="noopener">Open link ↗</a>` : ''}</div></div>` : '';
+  return `<div class="stop ${sel ? 'sel' : ''} ${bad ? 'bad' : ''}" data-id="${i.id}" style="--c:${col}">
+    <div class="time">${i.time ? timeHTML(i.time) : '<small>Any time</small>'}${i.end ? `<small>– ${fmtTime(i.end)}</small>` : ''}</div>
+    <div class="dot ${num ? '' : 'none'}">${num || ''}</div>
+    <div><h3>${esc(i.title)}</h3><div class="meta">${meta.join('')}</div>${more}</div>
+    ${priceHTML(i)}
+    <div class="rowacts">${S.canWrite ? `<button data-edit-row="${i.id}" aria-label="Edit" title="Edit">${PEN}</button>` : ''}${canDrag ? `<button class="grip" aria-label="Drag to move" title="Drag to move">${GRIP}</button>` : ''}</div></div>`;
+}
+// last pinned stop of the day before d, so day N+1 continues from day N
+function prevDayLast(d){ if(!d) return null; const all = sortItems(tripStops()).filter(i => i.date && i.date < d && hasPin(i)); return all[all.length - 1] || null; }
+function dayArea(list){ const st = list.find(i => i.category === 'stay' && i.place) || [...list].reverse().find(i => i.place && hasPin(i)) || list.find(i => i.place); return st ? st.place.split(',')[0].trim() : ''; }
+let SEQ = new Map();
+function itinHTML(){
+  SEQ = seqMap();
+  const its = visibleItems();
+  const groups = new Map();
+  if(S.day === 'all' && !S.q) tripDays().forEach(d => groups.set(d, []));
+  its.forEach(i => { const k = i.date || ''; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
+  if(!groups.size) return `<div class="empty"><h2>${S.q ? 'Nothing matches' : 'No stops this day'}</h2><p>${S.q ? 'Try another search.' : 'Add flights, hotels, food and sights.'}</p></div>`;
+  const days = tripDays();
+  return [...groups.entries()].sort((a,b) => (a[0]||'9999').localeCompare(b[0]||'9999')).map(([d, list]) => {
+    const sub = list.reduce((s,i) => s + (toHome(i)||0), 0), bad = timeIssues(list), area = dayArea(list), dn = days.indexOf(d) + 1;
+    let prev = prevDayLast(d), first = true;
+    const rows = list.map(i => { const h = stopHTML(i, prev, first && !!prev, bad.get(i.id)); if(hasPin(i)){ prev = i; first = false; } return h; }).join('');
+    const head = d ? `<div class="dn" style="background:${dayColor(d)}">${dn}</div><div><h2>Day ${dn}${area ? ' — ' + esc(area) : ''}</h2><span class="d">${fmtDay(d, {weekday:'long', month:'short', day:'numeric'})}</span></div>`
+                   : `<div class="dn" style="background:#6b7785">?</div><div><h2>Unscheduled</h2><span class="d">No date yet</span></div>`;
+    return `<section class="day" data-day="${d}"><div class="dayhead">${head}${sub ? `<span class="t num">${money(sub)}</span>` : ''}</div>${rows}
+      ${!list.length ? `<div class="dropnote">Nothing planned yet.${S.canWrite && !S.q ? ' Drag a stop here or add one.' : ''}</div>` : ''}
+      <button class="addday needw" data-add="${d}">+ Add stop</button></section>`;
+  }).join('');
+}
+function tableHTML(){
+  const cols = [['date','Date'],['time','Time'],['title','Name'],['category','Type'],['place','Place'],['home','Price','r'],['status','Status'],['notes','Notes']];
+  const its = visibleItems(); const {k, d} = S.sort;
+  const val = i => k === 'home' ? (toHome(i) || 0) : k === 'category' ? CATS[i.category]?.[0] : (i[k] || '');
+  if(k !== 'date') its.sort((a,b) => { const x = val(a), y = val(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * d; });
+  else if(d < 0) its.reverse();
+  const total = its.reduce((s,i) => s + (toHome(i)||0), 0);
+  if(!its.length) return `<div class="empty"><h2>Nothing here yet</h2></div>`;
+  return `<div class="scroll"><table class="stack"><thead><tr>${cols.map(([c,l,r]) => `<th class="${r||''}" data-sort="${c}">${l}${k === c ? (d > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead><tbody>
+   ${its.map(i => `<tr data-id="${i.id}"><td class="num">${i.date ? fmtDay(i.date) : esc(i.span || '')}</td><td class="num">${fmtTime(i.time)}${i.end ? '–' + fmtTime(i.end) : ''}</td><td><b>${esc(i.title)}</b></td><td>${CATS[i.category]?.[0] || ''}</td><td>${esc(i.place || '')}</td>
+   <td class="r num">${+i.price ? money(amt(i), i.currency || home()) : ''}${+i.price && (i.currency || home()) !== home() ? `<br><small>${toHome(i) == null ? 'no rate' : '≈ ' + money(toHome(i))}</small>` : ''}</td><td>${STAT[i.status || 'planned']}</td><td>${esc(i.notes || '')}</td></tr>`).join('')}
+   </tbody><tfoot><tr><td colspan="5">${its.length} stops</td><td class="r num">${money(total)}</td><td colspan="2"></td></tr></tfoot></table></div>`;
+}
+function budgetHTML(){
+  const t = trip(), its = tripItems(), H = t.currency, ppl = +t.people || 1;
+  const total = its.reduce((s,i) => s + (toHome(i)||0), 0), paid = its.filter(i => i.status === 'paid').reduce((s,i) => s + (toHome(i)||0), 0);
+  const missing = [...new Set(its.filter(i => +i.price && toHome(i) == null).map(i => i.currency))];
+  const b = +t.budget || 0, days = tripDays();
+  // ledger like the 預算表: one money column per currency, rows grouped by category
+  const priced = its.filter(i => +i.price || i.expense || i.category === 'stay');
+  const curs = [H, ...[...new Set(priced.map(i => i.currency || H))].filter(c => c !== H).sort()];
+  const colSum = c => priced.filter(i => (i.currency || H) === c).reduce((s,i) => s + amt(i), 0);
+  const cats = Object.keys(CATS).filter(c => priced.some(i => (i.category || 'other') === c));
+  const when = i => i.expense ? esc(i.span || (i.date ? fmtDay(i.date, {month:'numeric', day:'numeric'}) : '')) : (i.date ? fmtDay(i.date, {month:'numeric', day:'numeric'}) : '');
+  const rowsFor = c => sortItems(priced.filter(i => (i.category || 'other') === c)).map((i, n, arr) => {
+    const nn = nightOf(i);
+    return `<tr data-id="${i.id}">${n === 0 ? `<th class="cat" rowspan="${arr.length}" style="--c:${CATS[c][1]}">${CATS[c][0]}</th>` : ''}
+      <td class="num">${nn > 0 ? `${when(i)} 第${nn}晚` : when(i)}</td><td><b>${esc(i.title)}</b>${i.place && i.category === 'stay' ? `<br><small>${esc(i.place)}</small>` : ''}</td>
+      ${curs.map(cu => `<td class="r num">${(i.currency || H) === cu && +i.price ? money(amt(i), cu) + ((+i.qty || 1) > 1 ? `<br><small>${money(+i.price, cu)} × ${i.qty}</small>` : '') : ((i.currency || H) === cu ? '–' : '')}</td>`).join('')}
+      <td class="nt">${esc(i.notes || '')}</td></tr>`; }).join('');
+  const byDay = days.map(d => [d, its.filter(i => i.date === d && !i.expense).reduce((s,i) => s + (toHome(i)||0), 0)]);
+  const md = Math.max(1, ...byDay.map(x => x[1]));
+  return `${missing.length ? `<div class="warnbox">Add an exchange rate for ${missing.join(', ')} in Trip settings so those prices count toward your totals.</div>` : ''}
+   <div class="kpis"><div class="kpi"><b class="num">${money(total)}</b><span>Total 合計</span></div>
+   <div class="kpi"><b class="num">${money(total / ppl)}</b><span>Per person 平均${ppl > 1 ? ` (${ppl} people)` : ''}</span></div>
+   <div class="kpi"><b class="num">${b ? money(b - total) : '—'}</b><span>${b ? (total > b ? 'Over budget' : 'Left in budget') : 'Set a budget in Trip settings'}</span></div>
+   <div class="kpi"><b class="num">${money(total - paid)}</b><span>Not yet paid</span></div></div>
+   <div class="ledhead"><h3>Budget sheet 預算表</h3><button class="btn needw" data-act="expense">+ Add expense</button></div>
+   ${cats.length ? `<div class="scroll"><table class="ledger"><thead><tr><th></th><th>Date 日期</th><th>Item</th>${curs.map(c => `<th class="r">${c}</th>`).join('')}<th>Notes 備註</th></tr></thead>
+   <tbody>${cats.map(rowsFor).join('')}</tbody>
+   <tfoot><tr><th>合計</th><td></td><td>Total</td>${curs.map(c => `<td class="r num">${money(colSum(c), c)}</td>`).join('')}<td class="nt">${curs.length > 1 ? `= ${money(total)} at your rates` : ''}</td></tr>
+   ${ppl > 1 ? `<tr><th>平均</th><td></td><td>Per person</td>${curs.map(c => `<td class="r num">${money(colSum(c) / ppl, c)}</td>`).join('')}<td class="nt">÷ ${ppl}</td></tr>` : ''}</tfoot></table></div>`
+   : '<p class="hint">Add costs to stops, or add trip-wide expenses like flights, insurance or a WiFi card.</p>'}
+   <div class="rows"><h3>Spend by day</h3>${byDay.map(([d,v], n) => `<div class="row"><span>Day ${n+1} · ${fmtDay(d, {month:'numeric', day:'numeric'})}</span><div class="track"><i style="width:${v/md*100}%;background:${DAYC[n % DAYC.length]}"></i></div><span class="num" style="text-align:right">${v ? money(v) : '—'}</span></div>`).join('')}
+   <p class="hint">Day totals count costs on stops. Trip-wide expenses only appear in the budget sheet.</p></div>`;
+}
+/* ---------- checklist ---------- */
+function suggestions(){
+  const t = trip(), its = tripItems(), txt = its.map(i => (i.title + ' ' + i.place + ' ' + i.notes).toLowerCase()).join(' ');
+  const japan = its.some(i => i.currency === 'JPY') || 'JPY' in (t.rates || {}) || /japan|日本|hokkaido|kyushu|kumamoto|osaka|tokyo|kyoto/i.test(t.name);
+  const car = its.some(i => /rent|租車|rental/i.test(i.title)) || its.some(i => i.category === 'toll');
+  const flight = its.some(i => i.category === 'flight');
+  const list = ['Passport 護照', 'Credit card + some cash 信用卡、現金', 'Phone charger + power bank 行動電源', 'Travel insurance 旅遊保險'];
+  if(flight) list.push('Flight confirmations / boarding passes 機票確認');
+  if(its.some(i => i.category === 'stay')) list.push('Hotel confirmations 住宿確認');
+  if(its.some(i => i.category === 'wifi')) list.push('WiFi card / eSIM 網卡');
+  if(japan) list.push('Visit Japan Web QR code', 'Yen cash, some places are cash only 日幣現金');
+  if(japan && car) list.push('Driver\'s license + Japanese translation 駕照＋日文譯本', 'ETC card / expressway pass 高速公路周遊券');
+  if(t.start && pd(t.start).getMonth() in {11:1, 0:1, 1:1, 2:1} && japan) list.push('Warm layers, gloves, snow boots 保暖衣物');
+  return list.filter(x => !(t.checklist || []).some(c => c.text === x));
+}
+function checkHTML(){
+  const t = trip(), cl = t.checklist || [], done = cl.filter(c => c.done).length, sug = suggestions();
+  return `<div class="ledhead"><h3>Before you go</h3><span class="num hint">${cl.length ? `${done} of ${cl.length} done` : ''}</span></div>
+   ${cl.length ? `<div class="ckprog"><i style="width:${done / cl.length * 100}%"></i></div>` : ''}
+   <form class="ckbar needw" id="ckForm"><input id="ckIn" placeholder="Add an item, e.g. book the rental car" autocomplete="off" aria-label="New checklist item"><button class="btn primary">Add</button></form>
+   <ul class="ck">${cl.map(c => `<li class="${c.done ? 'done' : ''}"><label><input type="checkbox" data-ck="${c.id}" ${c.done ? 'checked' : ''} ${S.canWrite ? '' : 'disabled'}><span>${esc(c.text)}</span></label><button class="del needw" data-ckdel="${c.id}" aria-label="Remove">×</button></li>`).join('')}</ul>
+   ${!cl.length ? '<p class="hint" style="margin-top:14px">Nothing on the list yet.</p>' : ''}
+   ${sug.length ? `<div class="needw" style="margin-top:22px"><h3 style="font-size:18px;margin-bottom:8px">Suggested for this trip</h3><div class="seg">${sug.map((x, k) => `<button data-cksug="${k}">+ ${esc(x)}</button>`).join('')}</div>
+   <button class="btn" style="margin-top:10px" data-cksugall>Add all suggestions</button></div>` : ''}`;
+}
+function saveChecklist(cl){ const t = trip(); Store.saveTrip({...t, checklist: cl}); }
+
+/* ---------- map ---------- */
+const map = L.map('map', {worldCopyJump:true, minZoom:2, maxZoom:18, zoomSnap:0.5}).setView([24, 121], 4);
+const canvas = L.canvas({padding:0.5});
+const baseLayer = L.layerGroup().addTo(map), cityLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map), pinLayer = L.layerGroup().addTo(map);
+let geo = null, cities = [], tilesOK = false, tileFails = 0, markers = {};
+const probe = document.createElement('i'); probe.style.display = 'none'; document.body.appendChild(probe);
+const cssColor = v => { probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
+function drawBase(){
+  if(!geo || tilesOK) return; baseLayer.clearLayers();
+  L.geoJSON(geo, {renderer:canvas, interactive:false, style:() => ({color:cssColor('--border'), weight:0.8, fillColor:cssColor('--land'), fillOpacity:1})}).addTo(baseLayer);
+}
+fetch('data/world.json').then(r => r.json()).then(t => { geo = topojson.feature(t, t.objects.countries); drawBase(); }).catch(() => {});
+fetch('data/cities.json').then(r => r.json()).then(c => { cities = c; drawCities(); }).catch(() => {});
+const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, attribution:'© OpenStreetMap contributors © CARTO'});
+tiles.on('tileload', e => { if(!e.tile || !/^https:/.test(e.tile.src || '')) return; if(!tilesOK){ tilesOK = true; baseLayer.clearLayers(); cityLayer.clearLayers(); $('#mapnote').hidden = true; } });
+tiles.on('tileerror', () => { if(!tilesOK && ++tileFails >= 2 && map.hasLayer(tiles)) map.removeLayer(tiles); });
+tiles.addTo(map);
+function drawCities(){
+  if(!SET.labels){ cityLayer.clearLayers(); return; }
+  if(tilesOK || !cities.length) return; cityLayer.clearLayers();
+  const z = map.getZoom(), b = map.getBounds().pad(0.1);
+  const min = z < 3.5 ? 8e6 : z < 4.5 ? 2.5e6 : z < 5.5 ? 8e5 : z < 6.5 ? 3e5 : z < 7.5 ? 1e5 : z < 8.5 ? 4e4 : z < 9.5 ? 15000 : 5000;
+  const col = cssColor('--label'); let n = 0;
+  for(const c of cities){ if(c[4] < min) break; if(!b.contains([c[2], c[3]])) continue;
+    L.circleMarker([c[2], c[3]], {renderer:canvas, radius:2.2, color:col, weight:0, fillColor:col, fillOpacity:.8, interactive:false}).bindTooltip(esc(c[0]), {permanent:true, direction:'right', className:'clabel', offset:[2,0]}).addTo(cityLayer);
+    if(++n >= 70) break; }
+}
+map.on('moveend zoomend', drawCities);
+new ResizeObserver(() => map.invalidateSize()).observe($('.mapwrap'));
+const themeObs = new MutationObserver(() => {
+  const cur = ROOT.getAttribute('data-theme'), want = SET.theme === 'auto' ? viewerTheme : SET.theme;
+  if((cur || null) !== (want || null)){ viewerTheme = cur; if(SET.theme !== 'auto'){ applyTheme(); return; } } // the app changed its theme
+  drawBase(); drawCities(); });
+themeObs.observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { drawBase(); drawCities(); });
+
+let lastFitKey = '';
+function renderMap(fit){
+  routeLayer.clearLayers(); PINS = [];
+  const its = visibleItems(), days = tripDays(), byDay = new Map();
+  its.forEach(i => { if(!hasPin(i)) return; const k = i.date || ''; if(!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(i); });
+  const pts = [];
+  const seq = seqMap();
+  const dayKeys = [...byDay.keys()].sort((a,b) => (a||'9999').localeCompare(b||'9999'));
+  let carry = null;
+  for(const d of dayKeys){
+    const list = byDay.get(d);
+    const col = d ? dayColor(d) : '#6b7785';
+    // link the previous day's last stop to this day's first stop
+    const from = d ? (carry || (S.day === d ? prevDayLast(d) : null)) : null;
+    if(SET.routes && from && list.length){
+      L.polyline([[from.lat, from.lng], [list[0].lat, list[0].lng]], {color:col, weight:3, opacity:.8, dashArray:'1 8', lineCap:'round'}).addTo(routeLayer);
+      if(!carry){ pts.push([from.lat, from.lng, false]); }
+      if(!carry) L.circleMarker([from.lat, from.lng], {radius:7, color:col, weight:3, fillColor:'#fff', fillOpacity:1}).bindTooltip(`Start: ${esc(from.title)}`).addTo(routeLayer);
+    }
+    if(d) carry = list[list.length - 1];
+    if(SET.routes && list.length > 1) L.polyline(list.map(i => [i.lat, i.lng]), {color:col, weight:4, opacity:.9, dashArray:'8 9', lineCap:'round'}).addTo(routeLayer);
+    list.forEach(i => { PINS.push({i, num: seq.get(i.id), col, d}); pts.push([i.lat, i.lng, i.category === 'flight']); });
+  }
+  const lg = $('#legend'); const ds = [...byDay.keys()].filter(Boolean);
+  lg.hidden = ds.length < 2; lg.innerHTML = ds.map(d => `<span><i style="background:${dayColor(d)}"></i>Day ${days.indexOf(d)+1}</span>`).join('');
+  { const ground = pts.filter(p => !p[2]); const use = (S.day !== 'all' || !ground.length ? pts : ground).slice(); pts.length = 0; use.forEach(p => pts.push([p[0], p[1]])); }
+  const key = S.tripId + '|' + S.day;
+  drawPins();
+  if((fit || key !== lastFitKey) && pts.length){ lastFitKey = key; pts.length === 1 ? map.setView(pts[0], tilesOK ? 14 : 10) : map.fitBounds(pts, {paddingTopLeft:[90, 70], paddingBottomRight:[S.day !== 'all' ? Math.min(230, map.getSize().x * .35) : 90, 56], maxZoom:tilesOK ? 15 : 12}); }
+  else if(key !== lastFitKey) lastFitKey = key;
+}
+/* markers that overlap on screen (same place on different days, or crowded when zoomed out) stack into a column */
+let PINS = [], GROUPS = [];
+const STEP = 22; // horizontal overlap between markers in a row
+function drawPins(){
+  pinLayer.clearLayers(); markers = {}; GROUPS = [];
+  const z = map.getZoom(), pts = PINS.map(p => map.project([p.i.lat, p.i.lng], z));
+  const used = new Array(PINS.length).fill(false);
+  PINS.forEach((p, k) => { if(used[k]) return; const g = [k]; used[k] = true;
+    PINS.forEach((q, j) => { if(!used[j] && g.some(m => pts[m].distanceTo(pts[j]) < 26)){ used[j] = true; g.push(j); } });
+    GROUPS.push(g); });
+  // rows grow sideways, so keep merging any rows whose boxes touch until none do
+  const box = g => { const x = g.reduce((s, m) => s + pts[m].x, 0) / g.length, y = g.reduce((s, m) => s + pts[m].y, 0) / g.length, w = 28 + STEP * (g.length - 1); return [x - w / 2 - 2, y - 16, x + w / 2 + 2, y + 16]; };
+  for(let changed = true; changed;){ changed = false;
+    outer: for(let a = 0; a < GROUPS.length; a++) for(let b = a + 1; b < GROUPS.length; b++){ const A = box(GROUPS[a]), B = box(GROUPS[b]);
+      if(A[0] < B[2] && B[0] < A[2] && A[1] < B[3] && B[1] < A[3]){ GROUPS[a] = GROUPS[a].concat(GROUPS[b]); GROUPS.splice(b, 1); changed = true; break outer; } } }
+  GROUPS = GROUPS.map(g => g.map(m => PINS[m]).sort((a, b) => (a.num || 1e9) - (b.num || 1e9)));
+  const showAll = S.day !== 'all' && SET.labels !== false;
+  GROUPS.forEach(g => {
+    const lat = g.reduce((s, p) => s + p.i.lat, 0) / g.length, lng = g.reduce((s, p) => s + p.i.lng, 0) / g.length;
+    const w = 28 + STEP * (g.length - 1), selP = g.find(p => p.i.id === S.sel);
+    // one label per marker group: the selected stop, else (day view) the first stop plus how many more
+    const lp = selP || (showAll ? g[0] : null);
+    const short = t => t.length > 30 ? t.slice(0, 29) + '…' : t;
+    const label = lp ? `<div class="lb ${selP ? 'on' : ''}" style="--c:${lp.col};left:${w + 6}px">${esc(short(lp.i.title))}${lp.i.time ? `<small>${fmtTime(lp.i.time)}</small>` : ''}${!selP && g.length > 1 ? `<small>+${g.length - 1}</small>` : ''}</div>` : '';
+    const html = `<div class="prow" style="width:${w}px">${g.map((p, k) => `<div class="mk ${S.sel === p.i.id ? 'sel' : ''}" data-pid="${p.i.id}" title="${esc((p.num ? p.num + '. ' : '') + p.i.title)}" style="--c:${p.col};left:${STEP * k}px;z-index:${S.sel === p.i.id ? 300 : 100 + k}">${p.num || '•'}</div>`).join('')}${label}</div>`;
+    const m = L.marker([lat, lng], {icon:L.divIcon({className:'', html, iconSize:[w, 28], iconAnchor:[w / 2, 14]}), zIndexOffset: selP ? 1000 : g.length * 10, keyboard:false});
+    m.on('click', e => { const el = e.originalEvent?.target?.closest?.('[data-pid]'); const id = el ? el.dataset.pid : (selP ? selP.i.id : g[0].i.id); select(S.sel === id ? null : id, true); });
+    m.addTo(pinLayer); g.forEach((p, k) => markers[p.i.id] = {m, k, g, lat, lng});
+  });
+}
+map.on('zoomend', drawPins);
+// select a stop (or null to clear): expands its row and enlarges its marker; never moves the map
+function select(id, scroll){
+  S.sel = id; renderView(); drawPins();
+  if(id && scroll){ const row = document.querySelector(`.stop[data-id="${id}"]`); if(row) row.scrollIntoView({block:'nearest', behavior:'smooth'}); }
+}
+function highlight(scroll){ select(S.sel, scroll); }
+map.on('click', () => { if(!picking && S.sel) select(null); });
+
+/* ---------- item dialog ---------- */
+const F = $('#itemForm'), dlg = $('#itemDlg'); let editing = null, coords = null;
+$('#catPick').innerHTML = Object.entries(CATS).map(([k,[l,c]]) => `<label><input type="radio" name="category" value="${k}"><span><i style="background:${c}"></i>${l}</span></label>`).join('');
+function curOptions(sel, extra){ const list = [...new Set([...(extra||[]), ...CURS])]; return list.map(c => `<option ${c === sel ? 'selected' : ''}>${c}</option>`).join(''); }
+function setCoordTxt(){ $('#coordTxt').textContent = coords ? `Pinned at ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : 'No location yet'; $('#clearCoord').hidden = !coords; }
+function openItem(it, preset = {}){
+  if(!S.canWrite) return;
+  const t = trip(); editing = it ? {...it} : null;
+  const d = it || {category:'activity', status:'planned', currency:t.currency, date: S.day !== 'all' && S.day !== 'none' ? S.day : (t.start || ''), ...preset};
+  $('#itemTitle').textContent = it ? (it.expense ? 'Edit expense' : 'Edit stop') : (preset.expense ? 'Add expense' : 'Add stop');
+  F.reset();
+  F.title.value = d.title || ''; F.date.value = d.date || ''; F.time.value = d.time || ''; F.end.value = d.end || '';
+  F.place.value = d.place || ''; F.price.value = d.price || ''; F.status.value = d.status || 'planned'; F.link.value = d.link || ''; F.notes.value = d.notes || '';
+  F.qty.value = d.qty > 1 ? d.qty : ''; F.drive.value = d.drive || ''; F.stay.value = d.stay || ''; F.span.value = d.span || ''; F.expense.checked = !!d.expense; F.classList.toggle('exp', !!d.expense);
+  $('#curSel').innerHTML = curOptions(d.currency || t.currency, [t.currency, ...Object.keys(t.rates || {})]);
+  (F.querySelector(`[name=category][value="${d.category || 'other'}"]`) || F.querySelector('[name=category]')).checked = true;
+  coords = hasPin(d) ? {lat:d.lat, lng:d.lng} : null; setCoordTxt();
+  $('#delItem').hidden = $('#dupItem').hidden = !it;
+  $('#sugg').style.display = 'none';
+  dlg.showModal(); if(!it) F.title.focus();
+  itemSnap = formSnap();
+}
+let itemSnap = '';
+const formSnap = () => JSON.stringify([...new FormData(F).entries(), coords]);
+function readForm(){
+  const fd_ = new FormData(F), p = parseFloat(String(fd_.get('price')).replace(/[^0-9.\-]/g, ''));
+  return {...(editing || {id:uid(), created:Date.now()}), tripId:S.tripId, title:fd_.get('title').trim(), category:fd_.get('category') || 'other', date:fd_.get('date') || '', time:fd_.get('time') || '', end:fd_.get('end') || '',
+    place:fd_.get('place').trim(), price: isNaN(p) ? 0 : p, currency:fd_.get('currency'), status:fd_.get('status'), link:fd_.get('link').trim(), notes:fd_.get('notes').trim(),
+    lat: coords ? +coords.lat.toFixed(6) : null, lng: coords ? +coords.lng.toFixed(6) : null,
+    qty: Math.max(1, parseFloat(fd_.get('qty')) || 1), drive:fd_.get('drive').trim(), stay:fd_.get('stay').trim(), expense: F.expense.checked, span:fd_.get('span').trim()};
+}
+F.addEventListener('submit', e => { e.preventDefault(); if(!F.title.value.trim()){ F.title.focus(); return; } const it = readForm(); if(editing && editing.date !== it.date) delete it.order; Store.saveItem(it); S.sel = it.id; dlg.close(); highlight(true); toast(editing ? 'Stop updated' : 'Stop added'); });
+$('#cancelItem').onclick = () => dlg.close();
+$('#dupItem').onclick = () => { const it = {...readForm(), id:uid(), created:Date.now(), title: F.title.value.trim() + ' (copy)'}; Store.saveItem(it); dlg.close(); toast('Duplicated'); };
+$('#delItem').onclick = async () => { const it = editing; dlg.close(); Store.delItem(it.id); toast(`Deleted “${it.title}”`, () => Store.saveItem(it)); };
+F.expense.addEventListener('change', () => F.classList.toggle('exp', F.expense.checked));
+$('#clearCoord').onclick = () => { coords = null; setCoordTxt(); };
+// place autocomplete
+const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], {type:'region'}); return c => { try { return dn.of(c); } catch(e){ return c; } }; } catch(e){ return c => c; } })();
+let suggList = [], suggOn = -1, geoMode = false;
+function findCities(q, n = 7){
+  q = q.trim().toLowerCase(); if(q.length < 2 || !cities.length) return [];
+  const a = [], b = [];
+  for(const c of cities){ const nm = c[0].toLowerCase(), alt = (c[5] || '').toLowerCase();
+    if(nm.startsWith(q) || alt.startsWith(q)){ a.push(c); if(a.length >= n) break; }
+    else if(b.length < n && (nm.includes(q) || alt.includes(q))) b.push(c); }
+  return [...a, ...b].slice(0, n);
+}
+F.place.addEventListener('input', () => {
+  const q = F.place.value.split(',')[0]; suggList = findCities(q); suggOn = -1;
+  const s = $('#sugg'); s.style.display = suggList.length ? 'block' : 'none';
+  s.innerHTML = suggList.map((c, i) => `<button type="button" data-s="${i}">${esc(c[0])} <small>${esc(regionName(c[1]))}</small></button>`).join('');
+});
+F.place.addEventListener('keydown', e => {
+  if(!suggList.length || $('#sugg').style.display === 'none') return;
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); suggOn = (suggOn + (e.key === 'ArrowDown' ? 1 : -1) + suggList.length) % suggList.length; document.querySelectorAll('#sugg button').forEach((b, i) => b.classList.toggle('on', i === suggOn)); }
+  if(e.key === 'Enter' && suggOn >= 0){ e.preventDefault(); pickSugg(suggOn); }
+  if(e.key === 'Escape'){ e.preventDefault(); $('#sugg').style.display = 'none'; }
+});
+F.place.addEventListener('blur', () => setTimeout(() => $('#sugg').style.display = 'none', 200));
+function pickSugg(i){ const c = suggList[i]; F.place.value = c[5] ? c[5].split(',').slice(0, 3).map(x => x.trim()).join(', ') : `${c[0]}, ${regionName(c[1])}`; geoMode = false; coords = {lat:c[2], lng:c[3]}; setCoordTxt(); $('#sugg').style.display = 'none'; map.setView([c[2], c[3]], c[5] ? 14 : 11); }
+$('#sugg').addEventListener('mousedown', e => { const b = e.target.closest('[data-s]'); if(b){ e.preventDefault(); pickSugg(+b.dataset.s); } });
+// pick on map
+let picking = false;
+$('#pickMap').onclick = () => { picking = true; dlg.close(); document.body.classList.add('picking'); if(window.innerWidth <= 900) $('.mapwrap').scrollIntoView({behavior:'smooth'}); };
+function endPick(){ picking = false; document.body.classList.remove('picking'); dlg.showModal(); }
+$('#pickCancel').onclick = endPick;
+map.on('click', e => { if(!picking) return; coords = {lat:e.latlng.lat, lng:((e.latlng.lng + 540) % 360) - 180}; setCoordTxt(); endPick(); });
+// Find with Claude
+async function askLocations(list){
+  const t = trip(); const ctx = `${t?.name || ''}${t?.start ? ' (' + t.start + ')' : ''}`;
+  const prompt = `You are a geocoder. Trip context: "${ctx}". For each stop below give its latitude and longitude. Use the place text first and the name second; prefer locations that fit the trip context. If you cannot identify it confidently, use null.\nStops:\n${list.map((x, i) => `${i}. name: ${x.title || ''} | place: ${x.place || ''}`).join('\n')}\nReply with JSON only: an array of {"i": number, "lat": number|null, "lng": number|null, "label": "short place name, city"}.`;
+  const r = await S.sample(prompt, {modelTier:'quick'});
+  const m = (r.text || '').match(/\[[\s\S]*\]/); if(!m) throw new Error('No answer');
+  return JSON.parse(m[0]);
+}
+$('#askClaude').onclick = async () => {
+  const b = $('#askClaude'); if(!F.title.value.trim() && !F.place.value.trim()){ F.place.focus(); return; }
+  b.disabled = true; b.textContent = 'Finding…';
+  try { const [r] = await askLocations([{title:F.title.value, place:F.place.value}]);
+    if(r && typeof r.lat === 'number'){ coords = {lat:r.lat, lng:r.lng}; if(!F.place.value.trim() && r.label) F.place.value = r.label; setCoordTxt(); map.setView([r.lat, r.lng], 14); }
+    else $('#coordTxt').textContent = 'Claude couldn’t place that. Try a more specific place or pick on the map.';
+  } catch(e){ $('#coordTxt').textContent = e?.code === 'rate_limited' ? 'Too many lookups, try again shortly.' : 'Lookup unavailable right now.'; if(e?.code === 'not_granted'){ b.hidden = true; } }
+  b.disabled = false; b.textContent = 'Find with Claude';
+};
+
+/* ---------- trip dialog ---------- */
+const TF = $('#tripForm'), tdlg = $('#tripDlg'); let editingTrip = null;
+function openTrip(t){
+  if(!S.canWrite) return; editingTrip = t || null;
+  $('#tripTitle').textContent = t ? 'Trip settings' : 'New trip';
+  TF.reset(); TF.name.value = t?.name || ''; TF.start.value = t?.start || ''; TF.end.value = t?.end || ''; TF.budget.value = t?.budget || ''; TF.people.value = t?.people || '';
+  $('#homeCur').innerHTML = curOptions(t?.currency || trip()?.currency || 'TWD');
+  TF.rates.value = Object.entries(t?.rates || {}).map(([k,v]) => `${k} = ${v}`).join('\n');
+  $('#delTrip').hidden = !t; tdlg.showModal(); TF.name.focus();
+}
+TF.addEventListener('submit', e => {
+  e.preventDefault(); if(!TF.name.value.trim()) return;
+  const rates = {}; TF.rates.value.split('\n').forEach(l => { const m = l.toUpperCase().match(/([A-Z]{3})\s*[=:,]?\s*([0-9.]+)/); if(m) rates[m[1]] = +m[2]; });
+  let s = TF.start.value, en = TF.end.value; if(s && en && en < s) [s, en] = [en, s];
+  const t = {...(editingTrip || {id:uid(), created:Date.now()}), name:TF.name.value.trim(), start:s, end:en, currency:TF.currency.value, budget: parseFloat(TF.budget.value) || 0, people: parseInt(TF.people.value) || 1, rates};
+  S.tripId = t.id; ls.set('trip', t.id); Store.saveTrip(t); tdlg.close();
+});
+$('#cancelTrip').onclick = () => tdlg.close();
+$('#dupTrip').onclick = () => {
+  const src = editingTrip; if(!src) return; tdlg.close();
+  const t = {...src, id:uid(), created:Date.now(), name: src.name + ' (copy)', checklist:(src.checklist || []).map(c => ({...c, id:uid(), done:false}))};
+  const its = S.items.filter(i => i.tripId === src.id).map((i, k) => ({...i, id:uid(), created:Date.now() + k, tripId:t.id}));
+  S.tripId = t.id; ls.set('trip', t.id); S.day = 'all';
+  Store.saveTrip(t); its.forEach(i => Store.saveItem(i, true)); render(true);
+  toast(`Copied “${src.name}” with ${its.length} stops`);
+};
+$('#delTrip').onclick = async () => { const t = editingTrip; tdlg.close(); if(await confirmBox('Delete this trip?', `“${t.name}” and its ${S.items.filter(i => i.tripId === t.id).length} stops will be removed.`)){ const its = S.items.filter(i => i.tripId === t.id); Store.delTrip(t.id); S.tripId = null; render(true); toast('Trip deleted', () => { Store.saveTrip(t); its.forEach(i => Store.saveItem(i, true)); S.tripId = t.id; render(true); }); } };
+function confirmBox(title, msg, yes = 'Delete'){ return new Promise(res => { const d = $('#confirmDlg'); $('#cfTitle').textContent = title; $('#cfMsg').textContent = msg; $('#cfYes').textContent = yes; d.showModal(); $('#cfYes').onclick = () => { d.close(); res(true); }; $('#cfNo').onclick = () => { d.close(); res(false); }; d.oncancel = () => res(false); }); }
+
+/* ---------- Enter saves ---------- */
+function enterSaves(form){
+  form.addEventListener('keydown', e => {
+    if(e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || e.defaultPrevented) return;
+    const t = e.target;
+    if(t.tagName === 'TEXTAREA'){ if(e.metaKey || e.ctrlKey){ e.preventDefault(); form.requestSubmit(); } return; }
+    if(t.tagName === 'BUTTON' || t.tagName === 'A') return;
+    e.preventDefault(); form.requestSubmit();
+  });
+}
+enterSaves(F); enterSaves(TF);
+
+/* ---------- drag to reorder ---------- */
+let drag = null, dragTimer = null;
+$('#view').addEventListener('pointerdown', e => {
+  const g = e.target.closest('.grip'); if(!g || !S.canWrite || S.tab !== 'itin' || S.q) return;
+  e.preventDefault();
+  const row = g.closest('.stop'), r = row.getBoundingClientRect(), z = SET.text / 100;
+  const ghost = row.cloneNode(true); ghost.classList.add('ghost'); ghost.classList.remove('sel');
+  Object.assign(ghost.style, {width: r.width / z + 'px', left: r.left / z + 'px', top: r.top / z + 'px'});
+  document.body.appendChild(ghost);
+  const ph = document.createElement('div'); ph.className = 'ph'; ph.style.height = r.height / z + 'px';
+  const leg = row.previousElementSibling?.classList.contains('leg') ? row.previousElementSibling : null;
+  row.before(ph); row.hidden = true; if(leg) leg.hidden = true;
+  drag = {id: row.dataset.id, row, leg, ghost, ph, dy: e.clientY - r.top, y: e.clientY, z};
+  document.body.classList.add('dragging-on');
+  try { g.setPointerCapture(e.pointerId); } catch(err){}
+  dragTimer = setInterval(() => { if(!drag) return; const m = 70; if(drag.y < m) window.scrollBy(0, -14); else if(drag.y > innerHeight - m) window.scrollBy(0, 14); placeAt(drag.y); }, 30);
+});
+function placeAt(y){
+  const secs = [...document.querySelectorAll('#view .day')]; if(!secs.length) return;
+  let sec = secs.find(s => { const r = s.getBoundingClientRect(); return y >= r.top && y <= r.bottom; });
+  if(!sec) sec = y < secs[0].getBoundingClientRect().top ? secs[0] : secs[secs.length - 1];
+  const rows = [...sec.querySelectorAll('.stop')].filter(x => !x.hidden);
+  const before = rows.find(x => { const r = x.getBoundingClientRect(); return y < r.top + r.height / 2; });
+  if(before){ const anchor = before.previousElementSibling?.classList.contains('leg') ? before.previousElementSibling : before; if(anchor.previousElementSibling !== drag.ph) anchor.before(drag.ph); }
+  else { const end = sec.querySelector('.dropnote') || sec.querySelector('.addday'); if(end) { if(end.previousElementSibling !== drag.ph) end.before(drag.ph); } else sec.appendChild(drag.ph); }
+}
+document.addEventListener('pointermove', e => { if(!drag) return; drag.y = e.clientY; drag.ghost.style.top = (e.clientY - drag.dy) / drag.z + 'px'; placeAt(e.clientY); });
+function endDrag(cancel){
+  if(!drag) return; clearInterval(dragTimer);
+  const {id, ph, ghost, row, leg} = drag; drag = null; document.body.classList.remove('dragging-on'); ghost.remove();
+  if(cancel){ ph.remove(); row.hidden = false; if(leg) leg.hidden = false; return; }
+  const sec = ph.closest('.day'), day = sec ? sec.dataset.day : null;
+  const seq = []; [...sec.querySelectorAll('.stop, .ph')].forEach(x => { if(x === ph) seq.push(id); else if(!x.hidden && x.dataset.id !== id) seq.push(x.dataset.id); });
+  ph.remove();
+  const moved = S.items.find(i => i.id === id); if(!moved || day == null) { render(); return; }
+  const oldDay = moved.date || '';
+  // renumber the target day in its new order, and the day it left
+  seq.forEach((sid, k) => { const it = S.items.find(i => i.id === sid); if(!it) return; const nu = {...it, date: day, order: (k + 1) * 10};
+    if(it.date !== nu.date || it.order !== nu.order) Store.saveItem(nu, true); });
+  if(oldDay !== day){ dayOrdered(tripStops().filter(i => (i.date || '') === oldDay)).forEach((it, k) => { if(it.order !== (k + 1) * 10) Store.saveItem({...it, order: (k + 1) * 10}, true); }); }
+  S.sel = id; render(); highlight();
+  const after = timeIssues(dayOrdered(tripStops().filter(i => (i.date || '') === day)));
+  toast(after.has(id) ? 'Moved. The time is out of order, shown in red.' : (oldDay !== day ? `Moved to ${day ? fmtDay(day) : 'Unscheduled'}` : 'Order updated'));
+}
+document.addEventListener('pointerup', () => endDrag(false));
+document.addEventListener('pointercancel', () => endDrag(true));
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && drag) endDrag(true); });
+
+/* ---------- closing dialogs: backdrop click, Escape, × button ---------- */
+async function requestClose(d){
+  if(d.id === 'confirmDlg'){ $('#cfNo').click(); return; }
+  if(d.id === 'itemDlg' && formSnap() !== itemSnap){ d.close(); const ok = await confirmBox('Discard changes?', 'Your edits to this stop haven’t been saved.', 'Discard'); if(!ok){ d.showModal(); } return; }
+  d.close();
+}
+document.querySelectorAll('dialog').forEach(d => {
+  let downOut = false;
+  d.addEventListener('pointerdown', e => { downOut = e.target === d; });
+  d.addEventListener('click', e => { if(e.target === d && downOut) requestClose(d); downOut = false; });
+  d.addEventListener('cancel', e => { e.preventDefault(); requestClose(d); });
+  d.addEventListener('click', e => { if(e.target.closest('[data-close]')) requestClose(d); });
+});
+
+/* ---------- settings ---------- */
+const setDlg = $('#setDlg');
+function seg(el, key, opts){ el.innerHTML = opts.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${String(SET[key]) === String(v)}">${l}</button>`).join(''); el.onclick = e => { const b = e.target.closest('[data-v]'); if(!b) return; SET[key] = typeof SET_DEF[key] === 'number' ? +b.dataset.v : b.dataset.v; saveSettings(); }; }
+function renderSettings(){
+  seg($('#setText'), 'text', [[85,'Small'],[100,'Default'],[115,'Large'],[130,'Extra large']]);
+  seg($('#setClock'), 'clock', [['24','24-hour (14:30)'],['12','12-hour (2:30 PM)']]);
+  seg($('#setTheme'), 'theme', [['light','Light'],['dark','Dark'],['auto','Match device']]);
+  seg($('#setLang'), 'lang', [['en','English'],['zh','中文'],['es','Español']]);
+  $('#setCompact').checked = SET.compact; $('#setIdeas').checked = SET.hideIdeas; $('#setPast').checked = SET.showPast; $('#setRoutes').checked = SET.routes; $('#setLabels').checked = SET.labels;
+  const d = trip()?.start || todayS; $('#setPreview').textContent = `${fmtDay(d)} · ${fmtTime('14:30')} · Ice waterfall walk 冰瀑行走 · ¥7,000 × 2`;
+}
+function saveSettings(){ ls.set('settings', SET); applySettings(); renderSettings(); render(); drawCities(); }
+[['#setCompact','compact'],['#setIdeas','hideIdeas'],['#setPast','showPast'],['#setRoutes','routes'],['#setLabels','labels']].forEach(([id, k]) => $(id).addEventListener('change', e => { SET[k] = e.target.checked; saveSettings(); }));
+$('#setReset').onclick = () => { Object.assign(SET, SET_DEF); saveSettings(); };
+$('#setBtn').onclick = () => { renderSettings(); setDlg.showModal(); };
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg, undo){ const t = $('#toast'); $('#toastMsg').textContent = msg; $('#toastBtn').hidden = !undo; $('#toastBtn').onclick = () => { t.classList.remove('on'); undo && undo(); }; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), undo ? 6000 : 2500); }
+
+/* ---------- import ---------- */
+const FIELDS = [['date','Date',['date','day','fecha','dia','día','日期','日']],['time','Start time',['出發時間','出發','time','start','depart','hora','inicio','時間','開始']],['end','End time',['抵達時間','抵達','arrive','end','until','fin','llegada','結束']],
+  ['title','Name',['name','title','activity','what','event','item','plan','nombre','actividad','名稱','活動','行程','項目','景點']],['category','Category',['category','type','tipo','categoria','categoría','類別','類型','分類']],
+  ['place','Place',['place','location','where','address','city','lugar','ubicacion','ubicación','direccion','dirección','ciudad','地點','地址','城市','位置']],
+  ['price','Price',['price','cost','amount','precio','costo','coste','monto','價格','費用','金額','花費','價錢']],['currency','Currency',['currency','moneda','divisa','幣別','貨幣','幣']],
+  ['status','Status',['status','booked','estado','reservado','狀態','預訂']],['notes','Notes',['notes','note','comment','remarks','details','notas','comentarios','備註','備注','說明']],
+  ['link','Link',['link','url','website','enlace','連結','網址']],['drive','Getting here',['車程','drive','travel time','traslado']],['stay','Time there',['停留時間','停留','stay','duration','duración']],['qty','Quantity',['qty','quantity','人數','數量','cantidad']],['lat','Latitude',['lat','latitude','緯度']],['lng','Longitude',['lng','lon','long','longitude','經度']]];
+let wb = null, impRows = [], impHead = [], impName = '';
+$('#fileIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  try { wb = XLSX.read(await f.arrayBuffer(), {cellDates:true}); } catch(err){ toast('Couldn’t read that file'); return; }
+  impName = f.name.replace(/\.[^.]+$/, '');
+  $('#impSheet').innerHTML = wb.SheetNames.map(n => `<option>${esc(n)}</option>`).join('');
+  $('#impTarget').innerHTML = `<option value="__new">New trip: ${esc(impName)}</option>` + S.trips.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  loadSheet(); $('#importDlg').showModal();
+});
+$('#impSheet').onchange = loadSheet;
+function loadSheet(){
+  const ws = wb.Sheets[$('#impSheet').value];
+  const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:true});
+  let hi = raw.findIndex(r => r.filter(c => String(c).trim()).length >= 2); if(hi < 0) hi = 0;
+  impHead = (raw[hi] || []).map((h, i) => String(h).trim() || `Column ${i+1}`);
+  impRows = raw.slice(hi + 1).filter(r => r.some(c => String(c).trim()));
+  const norm = s => s.toLowerCase().replace(/[^a-z0-9一-鿿]/g, '');
+  const used = new Set();
+  $('#impMap').innerHTML = FIELDS.map(([k, l, syn]) => {
+    let g = impHead.findIndex((h, i) => !used.has(i) && syn.some(s => norm(h) === norm(s)));
+    if(g < 0) g = impHead.findIndex((h, i) => !used.has(i) && syn.some(s => norm(s).length > 2 && norm(h).includes(norm(s))));
+    if(g >= 0) used.add(g);
+    return `<span>${l}</span><select data-f="${k}"><option value="-1">Skip</option>${impHead.map((h, i) => `<option value="${i}" ${i === g ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select>`;
+  }).join('');
+  $('#impInfo').textContent = `${impRows.length} rows found. Match your columns to the planner's fields; it guessed from your headers.`;
+  $('#impGo').textContent = `Import ${impRows.length} rows`;
+  preview();
+}
+$('#impMap').addEventListener('change', preview);
+function mapping(){ const m = {}; document.querySelectorAll('#impMap select').forEach(s => m[s.dataset.f] = +s.value); return m; }
+const SYM = [['NT$','TWD'],['NTD','TWD'],['¥','JPY'],['円','JPY'],['JP¥','JPY'],['₩','KRW'],['€','EUR'],['£','GBP'],['US$','USD'],['HK$','HKD'],['฿','THB'],['$','USD']];
+function toDate(v){ if(v instanceof Date) return fd(new Date(v.getTime() + 43200000)); if(typeof v === 'number' && v > 20000){ const d = new Date(Math.round((v - 25569) * 864e5)); return fd(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); }
+  const s = String(v).trim(); if(!s) return ''; let m = s.match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/); if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.](\d{2,4}))?$/); if(m){ const y = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : (trip()?.start?.slice(0,4) || String(new Date().getFullYear())); return `${y}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`; }
+  const d = new Date(s); return isNaN(d) ? '' : fd(d); }
+function toTime(v){ if(v instanceof Date) return `${String(v.getHours()).padStart(2,'0')}:${String(v.getMinutes()).padStart(2,'0')}`; if(typeof v === 'number' && v < 1){ const mins = Math.round(v * 1440); return `${String(Math.floor(mins/60)).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`; }
+  const m = String(v).trim().toLowerCase().match(/(\d{1,2})(?:[:.：h](\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)?/); if(!m) return ''; let h = +m[1]; const mi = +(m[2] || 0); if(m[3]?.startsWith('p') && h < 12) h += 12; if(m[3]?.startsWith('a') && h === 12) h = 0; return h < 24 ? `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}` : ''; }
+function toCat(s, title){ s = (String(s) + ' ' + String(title || '')).toLowerCase();
+  const R = [['insurance',/insurance|seguro|保險/],['wifi',/wifi|sim|esim|網卡|wifi卡/],['toll',/\betc\b|expressway|高速|hep|kep/],['tickets',/ticket|entrada|門票|票/],['outdoor',/kayak|hiking|ski|outdoor|皮艇|戶外|滑雪|冰瀑/],['flight',/flight|vuelo|avión|avion|航班|飛機|機票|airport|aeropuerto|機場/],['stay',/hotel|hostel|airbnb|stay|lodging|alojamiento|hospedaje|住宿|飯店|旅館|民宿|check.?in/],['transport',/train|bus|taxi|metro|subway|transport|ferry|tren|autobús|交通|車|捷運|高鐵|新幹線|jr /],['food',/food|restaurant|lunch|dinner|breakfast|cafe|café|comida|cena|almuerzo|desayuno|餐|吃|美食|早餐|午餐|晚餐|market/],['shopping',/shop|mall|compras|tienda|購物|商店|outlet/],['activity',/activity|tour|museum|temple|shrine|park|visit|actividad|museo|景點|參觀|寺|神社|公園/]];
+  for(const [k, re] of R) if(re.test(s)) return k; return 'activity'; }
+const CAT_ZH = {'機票':'flight','住宿':'stay','交通':'transport','門票':'tickets','戶外':'outdoor','餐費':'food','購物':'shopping','保險':'insurance','wifi卡':'wifi','其他':'other','油錢':'transport'};
+function toStatus(s){ s = String(s).toLowerCase(); if(/paid|pagado|已付|付款/.test(s)) return 'paid'; if(/book|reserv|yes|sí|si|true|✓|✔|已訂|預訂/.test(s)) return 'booked'; if(/idea|maybe|quiz|可能|考慮/.test(s)) return 'idea'; return 'planned'; }
+function rowToItem(r, m, tripCur){
+  const g = k => m[k] >= 0 ? r[m[k]] : '';
+  let priceRaw = g('price'), cur = String(g('currency') || '').trim().toUpperCase(), price = 0;
+  if(typeof priceRaw === 'number') price = priceRaw; else { const s = String(priceRaw); if(!cur) for(const [sym, c] of SYM) if(s.toUpperCase().includes(sym.toUpperCase())){ cur = c; break; } price = parseFloat(s.replace(/[^0-9.\-]/g, '')) || 0; }
+  if(!/^[A-Z]{3}$/.test(cur)) cur = tripCur;
+  const lat = parseFloat(g('lat')), lng = parseFloat(g('lng'));
+  return {id:uid(), created:Date.now(), title:String(g('title') || g('place') || 'Untitled').trim(), date:toDate(g('date')), time:toTime(g('time')), end:toTime(g('end')), place:String(g('place') || '').trim(),
+    category: CAT_ZH[String(g('category')).trim()] || (m.category >= 0 && Object.keys(CATS).includes(String(g('category')).toLowerCase()) ? String(g('category')).toLowerCase() : toCat(g('category'), g('title'))), price, currency:cur, status:toStatus(g('status')), notes:String(g('notes') || '').trim(), link:String(g('link') || '').trim(),
+    lat: isNaN(lat) ? null : lat, lng: isNaN(lng) ? null : lng, drive:String(g('drive') || '').trim(), stay:String(g('stay') || '').trim(), qty: Math.max(1, parseFloat(g('qty')) || 1)};
+}
+function preview(){
+  const m = mapping(), cur = trip()?.currency || 'TWD', rows = impRows.slice(0, 5).map(r => rowToItem(r, m, cur));
+  $('#impPrev').innerHTML = `<thead><tr><th>Date</th><th>Time</th><th>Name</th><th>Type</th><th class="r">Price</th></tr></thead><tbody>${rows.map(i => `<tr><td class="num">${i.date}</td><td>${i.time}</td><td>${esc(i.title)}</td><td>${CATS[i.category][0]}</td><td class="r num">${i.price ? money(i.price, i.currency) : ''}</td></tr>`).join('')}</tbody>`;
+}
+$('#impCancel').onclick = () => $('#importDlg').close();
+$('#impGo').onclick = () => {
+  const m = mapping(); if(m.title < 0 && m.place < 0){ toast('Choose which column holds the name'); return; }
+  let tid = $('#impTarget').value, t;
+  if(tid === '__new'){ t = {id:uid(), created:Date.now(), name:impName, currency:'TWD', budget:0, rates:{}}; }
+  else t = S.trips.find(x => x.id === tid);
+  const its = impRows.map(r => ({...rowToItem(r, m, t.currency), tripId:t.id}));
+  const dates = its.map(i => i.date).filter(Boolean).sort();
+  if(tid === '__new'){ t.start = dates[0] || ''; t.end = dates[dates.length-1] || ''; }
+  let pinned = 0;
+  its.forEach(i => { if(hasPin(i)){ pinned++; return; } const key = (i.place || i.title).split(',')[0].trim().toLowerCase(); const c = key.length > 1 && cities.find(c => c[0].toLowerCase() === key || (c[5] || '').toLowerCase() === key); if(c){ i.lat = c[2]; i.lng = c[3]; pinned++; } });
+  S.tripId = t.id; ls.set('trip', t.id); S.day = 'all';
+  Store.saveTrip(t); its.forEach(i => Store.saveItem(i, true)); render(true);
+  $('#importDlg').close();
+  const left = its.length - pinned;
+  toast(`Imported ${its.length} stops${left ? ` · ${left} need a location${S.sample ? ', asking Claude' : ''}` : ''}`);
+  const foreign = [...new Set(its.map(i => i.currency).filter(c => c !== t.currency && !rate(c, t)))];
+  if(foreign.length) setTimeout(() => toast(`Add exchange rates for ${foreign.join(', ')} in Trip settings`), 2800);
+  if(left && S.sample) locateMissing();
+};
+async function locateMissing(){
+  const miss = tripItems().filter(i => !hasPin(i) && (i.place || i.title)); if(!miss.length || !S.sample) return;
+  $('#sync').textContent = `Locating ${miss.length} stops…`;
+  try { for(let k = 0; k < miss.length; k += 25){ const chunk = miss.slice(k, k + 25); const res = await askLocations(chunk);
+      res.forEach(r => { const it = chunk[r.i]; if(it && typeof r.lat === 'number') Store.saveItem({...it, lat:r.lat, lng:r.lng}, true); }); }
+    render(true); toast('Placed stops on the map');
+  } catch(e){ toast('Some stops still need a location'); }
+  S.mode === 'db' ? ($('#sync').textContent = 'Saved to your planner') : showSync();
+}
+
+/* ---------- export ---------- */
+$('#exportBtn').onclick = async () => {
+  const t = trip(); if(!t) return; const days = tripDays();
+  const rows = sortItems(tripItems()).map(i => ({Date:i.date, Day: i.date ? days.indexOf(i.date) + 1 : '', Start:i.time, End:i.end, Name:i.title, Category:CATS[i.category]?.[0] || '', Place:i.place, Price: +i.price || '', Currency:i.currency, [`Total (${t.currency})`]: toHome(i) ?? '', Qty: +i.qty || 1, 'Getting here': i.drive || '', 'Time there': i.stay || '', 'Budget only': i.expense ? (i.span || 'yes') : '', Status:STAT[i.status || 'planned'], Notes:i.notes, Link:i.link, Latitude:i.lat ?? '', Longitude:i.lng ?? ''}));
+  const wbo = XLSX.utils.book_new(), ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [12,5,7,7,30,16,26,10,9,5,12,10,10,12,10,36,30,10,10].map(w => ({wch:w}));
+  XLSX.utils.book_append_sheet(wbo, ws, 'Itinerary');
+  const data = new Uint8Array(XLSX.write(wbo, {bookType:'xlsx', type:'array'})), name = `${t.name.replace(/[\\/:*?"<>|]/g, '')}.xlsx`;
+  if(S.downloads){ try { await S.downloads.save({filename:name, data:new Blob([data])}); } catch(e){ if(e?.code !== 'declined') toast('Download unavailable here'); } return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data])); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+
+/* ---------- sample trip ---------- */
+function loadSample(){
+  const t = {id:uid(), created:Date.now(), name:'Kyoto & Osaka (sample)', start:'2026-12-18', end:'2026-12-23', currency:'TWD', budget:45000, rates:{JPY:0.21}};
+  const D = (n) => fd(new Date(2026, 11, 17 + n));
+  const L_ = [[1,'07:10','09:40','Flight TPE → KIX','flight','Kansai International Airport',34.432,135.2304,9800,'TWD','paid','Round trip, CI152 out / CI153 back. Seats 32A-B.'],
+  [1,'10:30','11:45','Haruka express to Kyoto','transport','Kyoto Station',34.9858,135.7588,3600,'JPY','planned','Buy ICOCA & Haruka combo at the airport.'],
+  [1,'15:00','','Check in: hotel near Gion','stay','Gion, Kyoto',35.0037,135.7756,68000,'JPY','booked','4 nights. Confirmation in email.'],
+  [1,'18:00','','Dinner at Nishiki Market','food','Nishiki Market, Kyoto',35.005,135.765,3000,'JPY','idea',''],
+  [2,'07:30','','Fushimi Inari shrine','activity','Fushimi Inari Taisha',34.9671,135.7727,0,'JPY','planned','Go early to beat the crowds.'],
+  [2,'11:00','','Kiyomizu-dera','activity','Kiyomizu-dera, Kyoto',34.9949,135.785,500,'JPY','planned',''],
+  [2,'12:30','','Lunch on Ninenzaka','food','Ninenzaka, Kyoto',34.9985,135.781,2000,'JPY','idea',''],
+  [3,'08:00','','Arashiyama bamboo grove','activity','Arashiyama, Kyoto',35.017,135.6713,0,'JPY','planned',''],
+  [3,'09:30','','Tenryu-ji garden','activity','Tenryu-ji, Kyoto',35.0158,135.6738,500,'JPY','planned',''],
+  [3,'14:00','','Kinkaku-ji','activity','Kinkaku-ji, Kyoto',35.0394,135.7292,500,'JPY','planned',''],
+  [4,'10:00','','Nara Park & Todai-ji','activity','Todai-ji, Nara',34.689,135.8398,800,'JPY','planned','Day trip, Kintetsu line from Kyoto.'],
+  [5,'13:00','','Osaka Castle','activity','Osaka Castle',34.6873,135.5262,600,'JPY','planned',''],
+  [5,'16:00','','Check in: hotel in Namba','stay','Namba, Osaka',34.6659,135.5013,14000,'JPY','planned','1 night'],
+  [5,'19:00','','Dotonbori street food','food','Dotonbori, Osaka',34.6687,135.5013,3500,'JPY','idea',''],
+  [6,'09:00','','Kuromon Market breakfast','food','Kuromon Market, Osaka',34.6654,135.5066,2500,'JPY','idea',''],
+  [6,'16:40','19:00','Flight KIX → TPE','flight','Kansai International Airport',34.432,135.2304,0,'TWD','paid','Included in round trip.']];
+  S.tripId = t.id; ls.set('trip', t.id); S.day = 'all'; Store.saveTrip(t);
+  L_.forEach(([d,time,end,title,category,place,lat,lng,price,currency,status,notes], k) => Store.saveItem({id:uid(), created:Date.now() + k, tripId:t.id, date:D(d), time, end, title, category, place, lat, lng, price, currency, status, notes, link:''}, true));
+  render(true);
+}
+
+/* ---------- events ---------- */
+$('#tripSel').onchange = e => { S.tripId = e.target.value; ls.set('trip', S.tripId); S.day = 'all'; S.sel = null; render(true); };
+$('#newTrip').onclick = () => openTrip(null);
+$('#editTrip').onclick = () => openTrip(trip());
+$('#importBtn').onclick = () => $('#fileIn').click();
+$('#addBtn').onclick = () => openItem(null);
+$('#q').oninput = e => { S.q = e.target.value; renderView(); renderMap(); };
+$('#pickCancel').onclick = endPick;
+document.querySelector('.tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if(!b) return; S.tab = b.dataset.tab; ls.set('tab', S.tab); renderTabs(); renderView(); };
+$('#days').onclick = e => { const b = e.target.closest('[data-day]'); if(!b) return; S.day = b.dataset.day; S.sel = null; renderDays(); renderView(); renderMap(); };
+$('#view').addEventListener('submit', e => { if(e.target.id !== 'ckForm') return; e.preventDefault(); const v = $('#ckIn').value.trim(); if(!v) return; saveChecklist([...(trip().checklist || []), {id:uid(), text:v, done:false}]); setTimeout(() => $('#ckIn')?.focus(), 0); });
+$('#view').addEventListener('click', e => {
+  const a = e.target.closest('[data-act]'); if(a){ ({newtrip:() => openTrip(null), import:() => $('#fileIn').click(), sample:loadSample, expense:() => openItem(null, {expense:true, category:'other', date:''})})[a.dataset.act](); return; }
+  if(e.target.closest('a')) return;
+  const ck = e.target.closest('[data-ck]'); if(ck){ const cl = (trip().checklist || []).map(c => c.id === ck.dataset.ck ? {...c, done: ck.checked} : c); saveChecklist(cl); return; }
+  const cd = e.target.closest('[data-ckdel]'); if(cd){ const old = trip().checklist || []; const gone = old.find(c => c.id === cd.dataset.ckdel); saveChecklist(old.filter(c => c !== gone)); toast('Item removed', () => saveChecklist([...(trip().checklist || []), gone])); return; }
+  const cs = e.target.closest('[data-cksug]'); if(cs){ const x = suggestions()[+cs.dataset.cksug]; if(x) saveChecklist([...(trip().checklist || []), {id:uid(), text:x, done:false}]); return; }
+  if(e.target.closest('[data-cksugall]')){ saveChecklist([...(trip().checklist || []), ...suggestions().map(x => ({id:uid(), text:x, done:false}))]); return; }
+  const cy = e.target.closest('[data-cycle]'); if(cy){ e.stopPropagation(); const it = S.items.find(i => i.id === cy.dataset.cycle); const ks = Object.keys(STAT); Store.saveItem({...it, status: ks[(ks.indexOf(it.status || 'planned') + 1) % ks.length]}); return; }
+  const ad = e.target.closest('[data-add]'); if(ad){ openItem(null, {date: ad.dataset.add}); return; }
+  const th = e.target.closest('[data-sort]'); if(th){ const k = th.dataset.sort; S.sort = {k, d: S.sort.k === k ? -S.sort.d : 1}; renderView(); return; }
+  const tr = e.target.closest('tr[data-id]'); if(tr){ openItem(S.items.find(i => i.id === tr.dataset.id)); return; }
+  if(e.target.closest('.grip')) return;
+  const ed = e.target.closest('[data-edit-row]'); if(ed){ openItem(S.items.find(i => i.id === ed.dataset.editRow)); return; }
+  if(e.target.closest('.more')) return;
+  const st = e.target.closest('.stop'); if(st){ const id = st.dataset.id; select(S.sel === id ? null : id); } // tap again to deselect; the map never moves
+});
+$('#view').addEventListener('dblclick', e => { const st = e.target.closest('.stop'); if(st && S.canWrite && !e.target.closest('.rowacts')) openItem(S.items.find(i => i.id === st.dataset.id)); });
+
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !picking && S.sel && !document.querySelector('dialog[open]')) select(null); if(e.key === 'Escape' && picking) endPick(); if(e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement === document.body && trip() && !document.querySelector('dialog[open]')) openItem(null); });
+
+/* ---------- backup and restore ---------- */
+async function saveFile(name, blob){
+  if(S.downloads){ try { await S.downloads.save({filename:name, data:blob}); } catch(e){ if(e?.code !== 'declined') toast('Download unavailable here'); } return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$('#backupBtn').onclick = () => {
+  const data = {app:'PointPlan', version:1, exported: new Date().toISOString(), trips:S.trips, items:S.items};
+  saveFile(`PointPlan backup ${todayS}.json`, new Blob([JSON.stringify(data, null, 1)], {type:'application/json'}));
+};
+$('#restoreBtn').onclick = () => $('#restoreIn').click();
+$('#restoreIn').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  let d; try { d = JSON.parse(await f.text()); } catch(err){ toast('That file isn’t a PointPlan backup'); return; }
+  if(!d || !Array.isArray(d.trips) || !Array.isArray(d.items)){ toast('That file isn’t a PointPlan backup'); return; }
+  setDlg.close();
+  const same = d.trips.filter(t => S.trips.some(x => x.id === t.id)).length;
+  const ok = await confirmBox('Restore this backup?', `${d.trips.length} trip${d.trips.length === 1 ? '' : 's'} and ${d.items.length} stops and expenses.${same ? ` ${same} trip${same === 1 ? '' : 's'} already here will be replaced by the backup version.` : ''} Other trips stay as they are.`, 'Restore');
+  if(!ok) return;
+  const ids = new Set(d.trips.map(t => t.id));
+  S.items.filter(i => ids.has(i.tripId) && !d.items.some(x => x.id === i.id)).forEach(i => Store.delItem(i.id));
+  d.trips.forEach(t => Store.saveTrip(t)); d.items.forEach(i => Store.saveItem(i, true));
+  if(d.trips[0]){ S.tripId = d.trips[0].id; ls.set('trip', S.tripId); }
+  render(true); toast(`Restored ${d.trips.length} trip${d.trips.length === 1 ? '' : 's'}`);
+});
+
+/* ---------- place search online (OpenStreetMap Nominatim), used when Claude lookup isn't available ---------- */
+let lastGeo = 0;
+async function searchOnline(q){
+  const wait = 1100 - (Date.now() - lastGeo); if(wait > 0) await new Promise(r => setTimeout(r, wait)); lastGeo = Date.now();
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=${encodeURIComponent(navigator.language || 'en')}&q=${encodeURIComponent(q)}`, {headers:{'Accept':'application/json'}});
+  if(!r.ok) throw new Error('search failed'); return r.json();
+}
+$('#webFind').onclick = async () => {
+  const q = (F.place.value.trim() || F.title.value.trim()); if(!q){ F.place.focus(); return; }
+  const b = $('#webFind'); b.disabled = true; b.textContent = 'Searching…';
+  try { const res = await searchOnline(q);
+    if(!res.length){ $('#coordTxt').textContent = 'No match. Try adding the city, or pick on the map.'; }
+    else { suggList = res.map(x => [x.name || x.display_name.split(',')[0], '', +x.lat, +x.lon, 0, x.display_name]); suggOn = -1; geoMode = true;
+      const sg = $('#sugg'); sg.style.display = 'block'; sg.innerHTML = res.map((x, i) => `<button type="button" data-s="${i}">${esc(x.name || x.display_name.split(',')[0])} <small>${esc(x.display_name)}</small></button>`).join(''); F.place.focus(); }
+  } catch(err){ $('#coordTxt').textContent = navigator.onLine ? 'Search unavailable right now. Pick on the map instead.' : 'You’re offline. Pick on the map, or search later.'; }
+  b.disabled = false; b.textContent = 'Search online';
+};
+const showWebFind = () => { $('#webFind').hidden = !!S.sample || !/^https?:/.test(location.protocol) || !!window.claude; };
+
+/* ---------- offline app ---------- */
+if('serviceWorker' in navigator && /^https?:/.test(location.protocol) && !window.claude){
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+
+applySettings();
+showWebFind();
+boot();
+}
+</script>
+</body>
+</html>
