@@ -1,6 +1,6 @@
 // PointPlan service worker: lets the app open and work without internet.
 // Bump VERSION whenever app files change so phones pick up the new version.
-const VERSION = 'pointplan-v3';
+const VERSION = 'pointplan-v4';
 const SHELL = `${VERSION}-shell`;
 const TILES = 'pointplan-tiles-osm'; // renamed so old (broken) map tiles saved on phones are thrown away
 const FONTS = 'pointplan-fonts';
@@ -14,6 +14,11 @@ const APP_FILES = [
   'vendor/leaflet.js',
   'vendor/topojson-client.min.js',
   'vendor/xlsx.full.min.js',
+  'cloud.js',
+  'firebase-config.js',
+  'vendor/firebase/firebase-app.js',
+  'vendor/firebase/firebase-auth.js',
+  'vendor/firebase/firebase-firestore.js',
   'data/world.json',
   'data/cities.json',
   'icons/icon-192.png',
@@ -72,6 +77,13 @@ self.addEventListener('fetch', event => {
       const net = fetch(req).then(res => { c.put(req, res.clone()); return res; }).catch(() => hit);
       return hit || net;
     }));
+    return;
+  }
+
+  // Sign-in settings: always try the network first so a new config takes effect right away.
+  if (url.origin === self.location.origin && url.pathname.endsWith('/firebase-config.js')) {
+    event.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(SHELL).then(c => c.put(req, copy)); return res; })
+      .catch(() => caches.match(req, {ignoreSearch: true})));
     return;
   }
 

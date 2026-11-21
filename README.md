@@ -16,7 +16,15 @@ Plan trips day by day: stops, times, costs and a map, in one page that works off
 
 ## Where your trips are saved
 
-Trips are saved on the device you use, in the browser. To move them to another phone or computer, use **Settings → Download backup**, then **Restore from backup** on the other device.
+- **Without signing in:** on the device you use, in the browser. Move them with **Settings → Download backup** and **Restore from backup**.
+- **Signed in with Google:** in your account (Firebase), synced to every device where you sign in. They stay available offline and sync when you're back online. The first time you sign in, PointPlan offers to copy the trips on that device into your account.
+- **Sharing:** open a trip → **Trip settings** → **Shared with** → enter someone's Google account email. They sign in to PointPlan and the trip appears for them; you both see each other's changes live. Only the owner can invite, remove people or delete the trip; others can leave it.
+
+## Firebase setup (already done for this project)
+
+1. `firebase-config.js` holds the web config of the Firebase project. It is public by design.
+2. Authentication → Sign-in method → **Google** enabled, and the site's domain under **Settings → Authorized domains**.
+3. Firestore database with the rules in `firestore.rules` pasted into **Firestore → Rules** and published. Update them there whenever that file changes.
 
 ## Run it
 
@@ -34,7 +42,8 @@ It is a static site with no build step.
 | `manifest.webmanifest`, `icons/` | Lets the app be installed on a phone or computer |
 | `data/world.json` | Country outlines used when street maps can't load |
 | `data/cities.json` | Cities used for place search and map labels |
-| `vendor/` | Leaflet (maps), topojson-client and SheetJS (Excel), with their licences in `vendor/licenses/` |
+| `cloud.js`, `firebase-config.js`, `firestore.rules` | Sign-in, sync and sharing (Firebase), its config, and the database security rules |
+| `vendor/` | Leaflet (maps), topojson-client, SheetJS (Excel) and the Firebase JS SDK, with their licences in `vendor/licenses/` |
 
 ## Credits
 

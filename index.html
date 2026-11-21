@@ -158,6 +158,9 @@ tfoot td{font-weight:700;border-bottom:0}
 .ledger th.cat{background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--ink);text-align:center;border-bottom:1px solid var(--card);width:96px;white-space:normal;cursor:default;font-size:13px}
 .ledger td.nt{color:var(--muted);font-size:13px;max-width:260px}.ledger small{color:var(--muted)}.ledger tfoot th{text-align:left;color:var(--ink);border:0}
 @media(max-width:600px){.ledger th.cat{width:auto}}
+.band .acct{min-height:42px;border-radius:999px;font-size:14px;padding:0 14px}
+.band .acct.in{width:42px;padding:0;justify-content:center;background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+.sharebox{display:grid;gap:4px}.sharebox .ck li{min-height:44px}
 .dh-r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.dh-r .t{margin-left:0}
 button.fact{cursor:pointer;font:inherit;font-size:14px}button.fact:hover{border-color:var(--ink2)}
 .cv{color:var(--muted);font-size:12.5px;font-weight:500}
@@ -305,6 +308,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
     <button class="btn ib needw" id="editTrip" title="Trip settings" aria-label="Trip settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button>
     <button class="btn ib needw" id="importBtn" title="Import Excel" aria-label="Import Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg></button>
     <button class="btn ib" id="exportBtn" title="Export to Excel" aria-label="Export to Excel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 17v3h16v-3"/></svg></button>
+    <button class="btn acct" id="acctBtn" hidden>Sign in</button>
     <button class="btn ib" id="setBtn" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
   </div>
   <div class="facts" id="tripBar"></div>
@@ -393,8 +397,10 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
   </div>
   <label class="f">Travelers 人數 (for the per-person average)<input name="people" inputmode="numeric" placeholder="1"></label>
   <label class="f">Exchange rates, one per line: 1 unit = how much home currency<textarea name="rates" placeholder="JPY = 0.21&#10;USD = 32.4"></textarea></label>
+  <div class="sharebox" id="shareBox" hidden></div>
   <div class="foot">
     <button type="button" class="btn danger l" id="delTrip">Delete trip</button>
+    <button type="button" class="btn danger l" id="leaveTrip" hidden>Leave trip</button>
     <button type="button" class="btn" id="dupTrip">Duplicate trip</button>
     <button type="button" class="btn" id="cancelTrip">Cancel</button>
     <button type="submit" class="btn primary">Save trip</button>
@@ -432,6 +438,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
     <div class="setsec">Map</div>
     <label class="setrow"><span>Route lines between stops</span><span class="sw"><input type="checkbox" id="setRoutes"><i></i></span></label>
     <label class="setrow"><span>City names on the map</span><span class="sw"><input type="checkbox" id="setLabels"><i></i></span></label>
+    <div class="acctsec" hidden><div class="setsec">Account and sync</div><div id="acctBox"></div></div>
     <div class="setsec">Your data</div>
     <div class="setrow"><span>Backup<small>All trips, stops and checklists in one file. Keep a copy, or move your trips to another device.</small></span></div>
     <div class="seg"><button type="button" id="backupBtn">Download backup</button><button type="button" id="restoreBtn" class="needw">Restore from backup</button></div>
@@ -446,6 +453,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
   <div class="foot"><button class="btn" id="cfNo">Cancel</button><button class="btn primary" id="cfYes">Delete</button></div>
 </div></dialog>
 
+<script src="firebase-config.js"></script>
 <script src="vendor/leaflet.js"></script>
 <script src="vendor/topojson-client.min.js"></script>
 <script src="vendor/xlsx.full.min.js"></script>
@@ -547,26 +555,31 @@ let db = null; const chains = new Map();
 function queue(path, fn){ const p = (chains.get(path) || Promise.resolve()).then(fn).catch(e => { console.warn(e); if(e?.code === 'invalid_argument' && S.mode === 'db'){ S.canWrite = false; render(); toast('You can view this planner but not edit it.'); } else toast('Could not save: ' + (e?.message || 'unknown error')); }); chains.set(path, p); return p; }
 function persistLocal(){ if(S.mode === 'local') ls.set('data', {trips:S.trips, items:S.items}); }
 function clean(o){ const r = {}; for(const [k,v] of Object.entries(o)) if(v !== undefined && !(typeof v === 'number' && isNaN(v))) r[k] = v; return r; }
+let cloud = null; // Firebase sync, when configured and signed in (S.mode === 'cloud')
 const Store = {
-  saveTrip(t){ t = clean(t); const i = S.trips.findIndex(x => x.id === t.id); if(i >= 0) S.trips[i] = t; else S.trips.push(t);
-    if(S.mode === 'db') queue('trips/'+t.id, () => db.doc('trips/'+t.id).set(t)); else persistLocal(); render(); },
+  saveTrip(t){ t = clean(t); const i = S.trips.findIndex(x => x.id === t.id);
+    if(S.mode === 'cloud'){ if(i < 0){ delete t.owner; delete t.editors; } t = cloud.saveTrip(t); } // a new trip is always yours
+    if(i >= 0) S.trips[i] = t; else S.trips.push(t);
+    if(S.mode === 'db') queue('trips/'+t.id, () => db.doc('trips/'+t.id).set(t)); else if(S.mode === 'local') persistLocal(); render(); },
   delTrip(id){ const its = S.items.filter(i => i.tripId === id); S.trips = S.trips.filter(t => t.id !== id); S.items = S.items.filter(i => i.tripId !== id);
-    if(S.mode === 'db'){ queue('trips/'+id, () => db.doc('trips/'+id).delete()); its.forEach(i => queue('items/'+i.id, () => db.doc('items/'+i.id).delete())); } else persistLocal(); render(); },
+    if(S.mode === 'db'){ queue('trips/'+id, () => db.doc('trips/'+id).delete()); its.forEach(i => queue('items/'+i.id, () => db.doc('items/'+i.id).delete())); }
+    else if(S.mode === 'cloud') cloud.deleteTrip(id, its.map(i => i.id)); else persistLocal(); render(); },
   saveItem(it, quiet){ it = clean(it); const i = S.items.findIndex(x => x.id === it.id); if(i >= 0) S.items[i] = it; else S.items.push(it);
-    if(S.mode === 'db') queue('items/'+it.id, () => db.doc('items/'+it.id).set(it)); else persistLocal(); if(!quiet) render(); },
-  delItem(id){ S.items = S.items.filter(i => i.id !== id); if(S.mode === 'db') queue('items/'+id, () => db.doc('items/'+id).delete()); else persistLocal(); render(); }
+    if(S.mode === 'db') queue('items/'+it.id, () => db.doc('items/'+it.id).set(it)); else if(S.mode === 'cloud') cloud.saveItem(it); else persistLocal(); if(!quiet) render(); },
+  delItem(id){ const it = S.items.find(i => i.id === id); S.items = S.items.filter(i => i.id !== id);
+    if(S.mode === 'db') queue('items/'+id, () => db.doc('items/'+id).delete()); else if(S.mode === 'cloud'){ if(it) cloud.deleteItem(it.tripId, id); } else persistLocal(); render(); }
 };
 let localNote = '';
 function showSync(){ if(S.mode !== 'local') return; const el = $('#sync'); el.textContent = localNote || (navigator.onLine ? 'Saved on this device' : 'Offline · saved on this device'); el.classList.toggle('off', !navigator.onLine); }
 addEventListener('online', showSync); addEventListener('offline', showSync);
 function startLocal(note){
-  S.mode = 'local'; const d = ls.get('data'); if(d){ S.trips = d.trips || []; S.items = d.items || []; }
+  S.mode = 'local'; const d = ls.get('data'); S.trips = d?.trips || []; S.items = d?.items || [];
   localNote = note || ''; showSync();
   render(true);
 }
 async function boot(){
   render(true);
-  if(!window.claude || typeof window.claude.use !== 'function'){ startLocal(); return; }
+  if(!window.claude || typeof window.claude.use !== 'function'){ startLocal(); startCloudSync(); return; }
   claude.use('sample').then(s => { S.sample = s; $('#askClaude').hidden = !s; });
   claude.use('downloads').then(d => { S.downloads = d; });
   db = await claude.use('db');
@@ -581,6 +594,55 @@ async function boot(){
   db.collection('trips').onSnapshot(s => { S.trips = s.docs.map(d => ({...d.data(), id:d.id})); if(!s.metadata.fromCache) gotT = true; done(); render(first && gotI); if(gotI) first = false; }, e => { clearTimeout(timer); $('#sync').textContent = 'Saved data unavailable'; });
   db.collection('items').onSnapshot(s => { S.items = s.docs.map(d => ({...d.data(), id:d.id})); if(!s.metadata.fromCache) gotI = true; done(); render(first && gotT); if(gotT) first = false; }, e => { clearTimeout(timer); $('#sync').textContent = 'Saved data unavailable'; });
 }
+
+/* ---------- account and sync (Firebase) ---------- */
+let renderQueued = false;
+const renderSoon = () => { if(renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); };
+function setCloudStatus(st){ if(S.mode !== 'cloud') return; const el = $('#sync');
+  el.textContent = st === 'offline' ? 'Offline · changes will sync' : st === 'syncing' ? 'Saving…' : 'Synced'; el.classList.toggle('off', st === 'offline'); }
+// trips copied into an account get fresh ids, so they never clash with someone else's trip
+function freshIds(trips, items){ const map = new Map(); const known = new Set(S.mode === 'cloud' ? S.trips.map(t => t.id) : []);
+  const t2 = trips.map(t => { if(known.has(t.id)) return t; const n = uid(); map.set(t.id, n); const {owner, editors, ...rest} = t; return {...rest, id:n}; });
+  const i2 = items.filter(i => trips.some(t => t.id === i.tripId)).map(i => map.has(i.tripId) ? {...i, tripId: map.get(i.tripId), id: i.id === i.tripId + '-fuel' ? map.get(i.tripId) + '-fuel' : i.id} : i);
+  return [t2, i2]; }
+async function offerUpload(){
+  const me = cloud.me(); if(!me || ls.get('uploaded.' + me.uid)) return;
+  const d = ls.get('data'); const local = (d?.trips || []); if(!local.length) { ls.set('uploaded.' + me.uid, true); return; }
+  const ok = await confirmBox('Move your trips into your account?', `${local.length} trip${local.length === 1 ? '' : 's'} saved on this device will be copied to your account, so they sync to your other devices and you can share them.`, 'Copy to my account');
+  ls.set('uploaded.' + me.uid, true); if(ok) uploadLocal();
+}
+function uploadLocal(){ const d = ls.get('data'); if(!d?.trips?.length) return; const [t, i] = freshIds(d.trips, d.items || []); cloud.upload(t, i); toast(`Copying ${t.length} trip${t.length === 1 ? '' : 's'} to your account`); }
+let lastErr = 0;
+async function startCloudSync(){
+  const cfg = window.POINTPLAN_FIREBASE; if(!cfg || !/^https?:/.test(location.protocol)) return;
+  $('#acctBtn').hidden = false; renderAccount();
+  let mod; try { mod = await import('./cloud.js'); } catch(e){ console.warn(e); return; }
+  let offered = false;
+  cloud = mod.startCloud(cfg, {
+    onUser(u){ S.user = u; renderAccount();
+      if(u){ S.mode = 'cloud'; S.trips = []; S.items = []; offered = false; $('#sync').textContent = 'Loading your trips…'; render(); }
+      else if(S.mode === 'cloud'){ startLocal(); } },
+    onTrips(trips, meta){ if(S.mode !== 'cloud') return; S.trips = trips; renderSoon(); setCloudStatus(navigator.onLine ? 'synced' : 'offline');
+      if(meta.fromServer && !offered){ offered = true; setTimeout(offerUpload, 300); } },
+    onItems(items){ if(S.mode !== 'cloud') return; S.items = items; renderSoon(); },
+    onStatus: setCloudStatus,
+    onError(e){ console.warn(e); if(Date.now() - lastErr < 4000) return; lastErr = Date.now();
+      toast(e?.code === 'permission-denied' ? 'That change wasn’t allowed. You may no longer have access to this trip.' : e?.code === 'auth/unauthorized-domain' ? 'Sign-in isn’t set up for this website yet (authorized domains).' : 'Sync problem: ' + (e?.message || 'unknown error')); }
+  });
+}
+function renderAccount(){
+  const b = $('#acctBtn'), u = S.user; if(!b) return;
+  b.classList.toggle('in', !!u); b.title = u ? `Signed in as ${u.email}` : 'Sign in to sync and share';
+  b.innerHTML = u ? `<span>${esc((u.name || u.email)[0].toUpperCase())}</span>` : 'Sign in';
+  const box = $('#acctBox'); if(!box) return;
+  if(!window.POINTPLAN_FIREBASE || !/^https?:/.test(location.protocol) || window.claude){ box.closest('.acctsec').hidden = true; return; }
+  box.closest('.acctsec').hidden = false;
+  const localN = ls.get('data')?.trips?.length || 0;
+  box.innerHTML = u ? `<div class="setrow"><span>${esc(u.email)}<small>Your trips sync to every device where you sign in, and you can share them from Trip settings.</small></span></div>
+      <div class="seg"><button type="button" data-acct="out">Sign out</button>${localN ? `<button type="button" data-acct="up">Copy ${localN} trip${localN === 1 ? '' : 's'} from this device</button>` : ''}</div>`
+    : `<div class="setrow"><span>Not signed in<small>Sign in with Google to sync trips between your devices and plan together with others.</small></span></div><div class="seg"><button type="button" data-acct="in">Sign in with Google</button></div>`;
+}
+async function signIn(){ try { await cloud?.signIn(); } catch(e){ toast(e?.code === 'auth/unauthorized-domain' ? 'Sign-in isn’t set up for this website yet (authorized domains).' : 'Couldn’t sign in: ' + (e?.message || 'unknown error')); } }
 
 /* ---------- rendering ---------- */
 function render(fit){
@@ -1069,13 +1131,44 @@ function openTrip(t){
   TF.reset(); TF.name.value = t?.name || ''; TF.start.value = t?.start || ''; TF.end.value = t?.end || ''; TF.budget.value = t?.budget || ''; TF.people.value = t?.people || '';
   $('#homeCur').innerHTML = curOptions(t?.currency || trip()?.currency || 'TWD');
   TF.rates.value = Object.entries(t?.rates || {}).map(([k,v]) => `${k} = ${v}`).join('\n');
-  $('#delTrip').hidden = !t; tdlg.showModal(); TF.name.focus();
+  const owner = !t || S.mode !== 'cloud' || t.owner === S.user?.uid;
+  $('#delTrip').hidden = !t || !owner; $('#leaveTrip').hidden = !t || owner;
+  renderShare(); tdlg.showModal(); TF.name.focus();
 }
+// who can see and edit this trip (signed-in sync only)
+function renderShare(){
+  const box = $('#shareBox'), t = editingTrip;
+  if(S.mode !== 'cloud' || !t){ box.hidden = true; return; }
+  const me = S.user, owner = t.owner === me.uid, eds = t.editors || [me.email];
+  box.hidden = false;
+  box.innerHTML = `<div class="setsec">Shared with</div>
+    <ul class="ck">${eds.map(e => `<li><span style="flex:1">${esc(e)}${e === me.email ? ' <small class="hint">(you)</small>' : ''}${t.owner && e === (owner ? me.email : null) ? ' <small class="hint">· owner</small>' : ''}</span>${owner && e !== me.email ? `<button type="button" class="del" data-unshare="${esc(e)}" aria-label="Remove ${esc(e)}">×</button>` : ''}</li>`).join('')}</ul>
+    ${owner ? `<div class="ckbar" style="margin-top:8px"><input type="email" id="shareIn" placeholder="Their Google account email" autocomplete="off" aria-label="Email to invite"><button type="button" class="btn" id="shareAdd">Invite</button></div>
+    <p class="hint">They sign in to PointPlan with that Google account and the trip appears for them. They can edit everything, but only you can invite people or delete the trip.</p>` : '<p class="hint">Only the trip’s owner can invite or remove people.</p>'}`;
+}
+function setEditors(list){
+  const t = S.trips.find(x => x.id === editingTrip.id); if(!t) return;
+  const nt = {...t, editors: [...new Set(list.map(e => e.trim().toLowerCase()).filter(Boolean))]};
+  editingTrip = {...editingTrip, editors: nt.editors}; Store.saveTrip(nt); renderShare();
+}
+$('#shareBox').addEventListener('click', e => {
+  if(e.target.id === 'shareAdd'){ const v = $('#shareIn').value.trim().toLowerCase(); if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ $('#shareIn').focus(); toast('Enter an email address'); return; }
+    if((editingTrip.editors || []).includes(v)){ toast('Already shared with ' + v); return; }
+    if((editingTrip.editors || []).length >= 20){ toast('A trip can be shared with up to 20 people'); return; }
+    setEditors([...(editingTrip.editors || []), v]); toast('Shared with ' + v); return; }
+  const r = e.target.closest('[data-unshare]'); if(r){ setEditors((editingTrip.editors || []).filter(x => x !== r.dataset.unshare)); toast('Removed ' + r.dataset.unshare); }
+});
+$('#shareBox').addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.id === 'shareIn' && !e.isComposing){ e.preventDefault(); e.stopPropagation(); $('#shareAdd').click(); } });
+$('#leaveTrip').onclick = async () => { const t = editingTrip; tdlg.close();
+  if(!await confirmBox('Leave this trip?', `“${t.name}” will disappear from your trips. The owner can invite you again.`, 'Leave')) return;
+  const cur = S.trips.find(x => x.id === t.id); if(!cur) return; const left = {...cur, editors: (cur.editors || []).filter(x => x !== S.user.email)};
+  cloud.saveTrip(left); S.trips = S.trips.filter(x => x.id !== t.id); S.items = S.items.filter(i => i.tripId !== t.id); S.tripId = null; render(true); toast('You left the trip'); };
 TF.addEventListener('submit', e => {
   e.preventDefault(); if(!TF.name.value.trim()) return;
   const rates = {}; TF.rates.value.split('\n').forEach(l => { const m = l.toUpperCase().match(/([A-Z]{3})\s*[=:,]?\s*([0-9.]+)/); if(m) rates[m[1]] = +m[2]; });
   let s = TF.start.value, en = TF.end.value; if(s && en && en < s) [s, en] = [en, s];
-  const t = {...(editingTrip || {id:uid(), created:Date.now()}), name:TF.name.value.trim(), start:s, end:en, currency:TF.currency.value, budget: parseFloat(TF.budget.value) || 0, people: parseInt(TF.people.value) || 1, rates};
+  const cur = editingTrip && S.trips.find(x => x.id === editingTrip.id);
+  const t = {...(editingTrip || {id:uid(), created:Date.now()}), ...(cur ? {owner: cur.owner, editors: cur.editors} : {}), name:TF.name.value.trim(), start:s, end:en, currency:TF.currency.value, budget: parseFloat(TF.budget.value) || 0, people: parseInt(TF.people.value) || 1, rates};
   S.tripId = t.id; ls.set('trip', t.id); Store.saveTrip(t); tdlg.close();
 });
 $('#cancelTrip').onclick = () => tdlg.close();
@@ -1178,7 +1271,10 @@ function renderSettings(){
 function saveSettings(){ ls.set('settings', SET); applySettings(); renderSettings(); render(); drawCities(); }
 [['#setCompact','compact'],['#setIdeas','hideIdeas'],['#setPast','showPast'],['#setRoutes','routes'],['#setLabels','labels']].forEach(([id, k]) => $(id).addEventListener('change', e => { SET[k] = e.target.checked; saveSettings(); }));
 $('#setReset').onclick = () => { Object.assign(SET, SET_DEF); saveSettings(); };
-$('#setBtn').onclick = () => { renderSettings(); setDlg.showModal(); };
+$('#acctBtn').onclick = () => { if(S.user){ renderSettings(); renderAccount(); setDlg.showModal(); setTimeout(() => $('#acctBox')?.scrollIntoView({block:'center'}), 50); } else signIn(); };
+$('#setDlg').addEventListener('click', e => { const a = e.target.closest('[data-acct]'); if(!a) return;
+  if(a.dataset.acct === 'in') signIn(); else if(a.dataset.acct === 'out'){ setDlg.close(); cloud.signOut(); toast('Signed out. Trips on this device are shown.'); } else if(a.dataset.acct === 'up'){ uploadLocal(); } });
+$('#setBtn').onclick = () => { renderAccount(); renderSettings(); setDlg.showModal(); };
 
 /* ---------- toast ---------- */
 let toastT;
@@ -1376,6 +1472,7 @@ $('#restoreIn').addEventListener('change', async e => {
   const same = d.trips.filter(t => S.trips.some(x => x.id === t.id)).length;
   const ok = await confirmBox('Restore this backup?', `${d.trips.length} trip${d.trips.length === 1 ? '' : 's'} and ${d.items.length} stops and expenses.${same ? ` ${same} trip${same === 1 ? '' : 's'} already here will be replaced by the backup version.` : ''} Other trips stay as they are.`, 'Restore');
   if(!ok) return;
+  if(S.mode === 'cloud'){ const [t2, i2] = freshIds(d.trips, d.items); d.trips = t2; d.items = i2; }
   const ids = new Set(d.trips.map(t => t.id));
   S.items.filter(i => ids.has(i.tripId) && !d.items.some(x => x.id === i.id)).forEach(i => Store.delItem(i.id));
   d.trips.forEach(t => Store.saveTrip(t)); d.items.forEach(i => Store.saveItem(i, true));
