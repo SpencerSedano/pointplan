@@ -161,6 +161,10 @@ tfoot td{font-weight:700;border-bottom:0}
 .warnbox{background:light-dark(#fef7e6,#2b2210);color:var(--warn);border-radius:14px;padding:10px 14px;font-size:14px;margin-bottom:12px}
 /* map */
 .leaflet-container{font:13px Inter,sans-serif;background:var(--water)}
+/* soften the busy street map so the day colours stand out; dark theme gets a dimmed, inverted map */
+.osm{filter:grayscale(.55) saturate(.8) contrast(.92) brightness(1.04)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]) .osm{filter:invert(1) hue-rotate(180deg) grayscale(.5) brightness(.85) contrast(.9)}}
+:root[data-theme=dark] .osm{filter:invert(1) hue-rotate(180deg) grayscale(.5) brightness(.85) contrast(.9)}
 .prow{position:relative;height:28px}
 .mk{position:absolute;top:0;width:28px;height:28px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#fff;font:700 12px Inter,sans-serif;cursor:pointer;
   box-shadow:0 0 0 2px light-dark(rgba(255,255,255,.95),rgba(13,17,23,.9)),0 2px 6px rgba(0,0,0,.25);transition:transform .15s;opacity:.94}
@@ -756,7 +760,8 @@ function drawBase(){
 }
 fetch('data/world.json').then(r => r.json()).then(t => { geo = topojson.feature(t, t.objects.countries); drawBase(); }).catch(() => {});
 fetch('data/cities.json').then(r => r.json()).then(c => { cities = c; drawCities(); }).catch(() => {});
-const tiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd', maxZoom:19, attribution:'© OpenStreetMap contributors © CARTO'});
+// Street map: OpenStreetMap's standard tiles (free, no key; attribution required). Softened by CSS to fit the design.
+const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, className:'osm', attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'});
 tiles.on('tileload', e => { if(!e.tile || !/^https:/.test(e.tile.src || '')) return; if(!tilesOK){ tilesOK = true; baseLayer.clearLayers(); cityLayer.clearLayers(); $('#mapnote').hidden = true; } });
 tiles.on('tileerror', () => { if(!tilesOK && ++tileFails >= 2 && map.hasLayer(tiles)) map.removeLayer(tiles); });
 tiles.addTo(map);

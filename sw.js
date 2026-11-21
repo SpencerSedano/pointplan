@@ -1,8 +1,8 @@
 // PointPlan service worker: lets the app open and work without internet.
 // Bump VERSION whenever app files change so phones pick up the new version.
-const VERSION = 'pointplan-v1';
+const VERSION = 'pointplan-v2';
 const SHELL = `${VERSION}-shell`;
-const TILES = 'pointplan-tiles';
+const TILES = 'pointplan-tiles-osm'; // renamed so old (broken) map tiles saved on phones are thrown away
 const FONTS = 'pointplan-fonts';
 const MAX_TILES = 3000; // map tiles you have viewed stay available offline, up to this many
 
@@ -28,7 +28,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k.startsWith('pointplan-') && k.endsWith('-shell') && k !== SHELL).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k.startsWith('pointplan-') && k !== SHELL && k !== TILES && k !== FONTS).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -54,7 +54,7 @@ self.addEventListener('fetch', event => {
   }
 
   // Map tiles: use the saved tile if we have it, otherwise download and keep it.
-  if (/basemaps\.cartocdn\.com$/.test(url.hostname) || /tile\.openstreetmap\.org$/.test(url.hostname)) {
+  if (url.hostname === 'tile.openstreetmap.org') {
     event.respondWith(caches.open(TILES).then(async c => {
       const hit = await c.match(req);
       if (hit) return hit;
