@@ -158,6 +158,24 @@ tfoot td{font-weight:700;border-bottom:0}
 .ledger th.cat{background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--ink);text-align:center;border-bottom:1px solid var(--card);width:96px;white-space:normal;cursor:default;font-size:13px}
 .ledger td.nt{color:var(--muted);font-size:13px;max-width:260px}.ledger small{color:var(--muted)}.ledger tfoot th{text-align:left;color:var(--ink);border:0}
 @media(max-width:600px){.ledger th.cat{width:auto}}
+.dh-r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.dh-r .t{margin-left:0}
+button.fact{cursor:pointer;font:inherit;font-size:14px}button.fact:hover{border-color:var(--ink2)}
+.cv{color:var(--muted);font-size:12.5px;font-weight:500}
+.ledger tr.allin td{color:var(--ink);font-weight:700}
+.rateline{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 8px 6px;font-size:13px;color:var(--ink2);border-top:1px solid var(--line)}
+.rateline small{color:var(--muted)}.rateline .acts{display:flex;gap:6px;flex-wrap:wrap}.rateline .btn{min-height:32px;font-size:13px;padding:0 12px}
+.drive .ledhead{margin:12px 0 6px}
+.drivecfg{display:flex;flex-wrap:wrap;gap:10px 22px;margin:4px 0 10px;font-size:13px;color:var(--muted)}
+.drivecfg label{display:grid;gap:4px}.drivecfg span{display:flex;align-items:center;gap:6px;color:var(--ink2)}
+.drivecfg input{width:76px;min-height:38px;border:1px solid var(--line);border-radius:10px;padding:0 10px;background:var(--card);font-size:16px;text-align:right}
+.drivecfg select{min-height:38px;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:0 6px}
+.drow{display:grid;grid-template-columns:22px minmax(0,1fr) auto 92px;gap:10px;align-items:center;padding:8px 0;border-top:1px dashed var(--line);font-size:14px;cursor:pointer}
+.drow input{width:18px;height:18px;accent-color:var(--ink)}.drow small{color:var(--muted);margin-left:8px}.drow .num{text-align:right}
+.drow.off{color:var(--muted)}.drow.off b{font-weight:500}
+.drivetot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding:10px 0 4px;font-size:15px}
+.drivetot small{color:var(--muted)}
+.drive > .btn{margin-top:6px}
+.convhint{font-size:13px;color:var(--muted);margin-top:-6px}
 .warnbox{background:light-dark(#fef7e6,#2b2210);color:var(--warn);border-radius:14px;padding:10px 14px;font-size:14px;margin-bottom:12px}
 /* map */
 .leaflet-container{font:13px Inter,sans-serif;background:var(--water)}
@@ -348,6 +366,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
     <label class="f">Currency<select name="currency" id="curSel"></select></label>
     <label class="f">× Qty<input name="qty" inputmode="numeric" placeholder="1"></label>
   </div>
+  <div class="convhint" id="convHint"></div>
   <div class="grid3">
     <label class="f">Status<select name="status"><option value="idea">Idea</option><option value="planned">Planned</option><option value="booked">Booked</option><option value="paid">Paid</option></select></label>
   </div>
@@ -569,6 +588,7 @@ function render(fit){
   if(!trip() && S.trips.length){ const byStart = S.trips.slice().sort((a,b) => (a.start||'').localeCompare(b.start||'')); S.tripId = (byStart.find(t => (t.end || t.start || '') >= todayS) || byStart[byStart.length-1]).id; }
   if(S.day !== 'all' && S.day !== 'none' && !tripDays().includes(S.day)) S.day = 'all';
   renderTripSel(); renderTripBar(); renderDays(); renderTabs(); renderView(); renderMap(fit);
+  if(trip() && driveCfg().on) setTimeout(fetchRoutes, 0);
 }
 function renderTripSel(){
   const sel = $('#tripSel');
@@ -581,6 +601,7 @@ const FI = {
   ppl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg>',
   money:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="6" width="19" height="13" rx="3"/><circle cx="12" cy="12.5" r="2.5"/></svg>',
   clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  car:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 16V11l2-5h10l2 5v5M3 16h18v3h-3M6 19H3"/><circle cx="7.5" cy="16" r="1.5"/><circle cx="16.5" cy="16" r="1.5"/><path d="M5 11h14"/></svg>',
   pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>'};
 function renderTripBar(){
   const t = trip(), el = $('#tripBar');
@@ -597,6 +618,7 @@ function renderTripBar(){
     ppl > 1 ? `<span class="fact">${FI.ppl}<b>${ppl}</b> travelers</span>` : '',
     `<span class="fact ${b && total > b ? 'over' : ''}">${FI.money}<b class="num">${money(total)}</b>${b ? ` of ${money(b)}` : ''}${ppl > 1 ? ` · ${money(total / ppl)} each` : ''}</span>`,
     `<span class="fact">${FI.pin}<b>${its.filter(i => !i.expense).length}</b> stops</span>`,
+    driveCfg(t).on ? (() => { const sm = driveSummary(); return `<button class="fact" data-act="gobudget" title="Driving and fuel estimate">${FI.car}<b class="num">${Math.round(sm.kmTot).toLocaleString()} km</b> · fuel ${money(sm.cost, sm.cfg.cur)}</button>`; })() : '',
     when ? `<span class="fact">${FI.clock}${when}</span>` : ''].join('');
 }
 function renderDays(){
@@ -634,7 +656,7 @@ function stopHTML(i, prev, fromNight, bad){
   const meta = [`<span>${icon(i.category)}${esc(c[0].split(' ')[0])}</span>`];
   if(i.place) meta.push(`<span>${esc(i.place)}</span>`);
   const leg = []; if(i.drive) leg.push(`${i.category === 'flight' ? 'Flight' : 'Drive'} ${esc(i.drive)}`);
-  if(prev && hasPin(prev) && hasPin(i)){ const k = km(prev, i); if(k >= 0.05) leg.push(kmTxt(k) + (fromNight ? ' from last night' : '')); }
+  if(prev && hasPin(prev) && hasPin(i)){ const r = driveCfg().on && ROUTES[rkey(prev, i)], k = r ? r.km : km(prev, i); if(k >= 0.05) leg.push(kmTxt(k) + (r ? ' by road' : '') + (fromNight ? ' from last night' : '')); }
   if(leg.length) meta.push(`<span>${leg.join(', ')}</span>`);
   const n = nightOf(i); if(n > 0) meta.push(`<span class="night">Night ${n}</span>`);
   if(i.stay) meta.push(`<span>Stay ${esc(i.stay)}</span>`);
@@ -669,7 +691,8 @@ function itinHTML(){
     const rows = list.map(i => { const h = stopHTML(i, prev, first && !!prev, bad.get(i.id)); if(hasPin(i)){ prev = i; first = false; } return h; }).join('');
     const head = d ? `<div class="dn" style="background:${dayColor(d)}">${dn}</div><div><h2>Day ${dn}${area ? ' — ' + esc(area) : ''}</h2><span class="d">${fmtDay(d, {weekday:'long', month:'short', day:'numeric'})}</span></div>`
                    : `<div class="dn" style="background:#6b7785">?</div><div><h2>Unscheduled</h2><span class="d">No date yet</span></div>`;
-    return `<section class="day" data-day="${d}"><div class="dayhead">${head}${sub ? `<span class="t num">${money(sub)}</span>` : ''}</div>${rows}
+    const dk = driveCfg().on ? driveSummary().days.find(x => x.d === d && x.on) : null;
+    return `<section class="day" data-day="${d}"><div class="dayhead">${head}<span class="dh-r">${dk ? `<span class="t num">${dk.est ? '≈ ' : ''}${Math.round(dk.km)} km</span>` : ''}${sub ? `<span class="t num">${money(sub)}</span>` : ''}</span></div>${rows}
       ${!list.length ? `<div class="dropnote">Nothing planned yet.${S.canWrite && !S.q ? ' Drag a stop here or add one.' : ''}</div>` : ''}
       <button class="addday needw" data-add="${d}">+ Add stop</button></section>`;
   }).join('');
@@ -687,35 +710,125 @@ function tableHTML(){
    <td class="r num">${+i.price ? money(amt(i), i.currency || home()) : ''}${+i.price && (i.currency || home()) !== home() ? `<br><small>${toHome(i) == null ? 'no rate' : '≈ ' + money(toHome(i))}</small>` : ''}</td><td>${STAT[i.status || 'planned']}</td><td>${esc(i.notes || '')}</td></tr>`).join('')}
    </tbody><tfoot><tr><td colspan="5">${its.length} stops</td><td class="r num">${money(total)}</td><td colspan="2"></td></tr></tfoot></table></div>`;
 }
+/* ---------- currency helpers ---------- */
+// convert v from one currency to another through the trip's home currency (null when a rate is missing)
+function conv(v, from, to, t = trip()){
+  if(v == null) return null; const H = t.currency; if(from === to) return v;
+  const h = from === H ? v : (rate(from, t) ? v * rate(from, t) : null); if(h == null) return null;
+  return to === H ? h : (rate(to, t) ? h / rate(to, t) : null);
+}
+const canFetch = () => /^https?:/.test(location.protocol) && !window.claude;
+const tripCurs = t => { const used = [...new Set(tripItems().map(i => i.currency || t.currency))]; const withRate = Object.keys(t.rates || {}).filter(c => +t.rates[c] > 0);
+  return [t.currency, ...[...new Set([...used, ...withRate])].filter(c => c !== t.currency).sort()]; };
+function rateLine(t){
+  const fx = tripCurs(t).slice(1); if(!fx.length) return '';
+  const parts = fx.map(c => rate(c, t) ? `1 ${c} = ${(+rate(c, t)).toLocaleString('en-US', {maximumFractionDigits:4})} ${t.currency} · 1 ${t.currency} = ${(1 / rate(c, t)).toLocaleString('en-US', {maximumFractionDigits:2})} ${c}` : `${c}: no rate yet`);
+  return `<div class="rateline"><span>${parts.join('<br>')}${t.ratesDate ? `<small> · rate from ${esc(t.ratesDate)}</small>` : ''}</span>
+    <span class="acts">${canFetch() ? `<button class="btn needw" data-act="fxupdate">Update to today’s rate</button>` : ''}<button class="btn needw" data-act="fxedit">Edit rate</button></span></div>`;
+}
+async function updateRates(){
+  const t = trip(); const fx = tripCurs(t).slice(1); if(!fx.length) return;
+  try { const r = await fetch(`https://open.er-api.com/v6/latest/${t.currency}`); const d = await r.json(); if(d.result !== 'success') throw 0;
+    const rates = {...(t.rates || {})}; fx.forEach(c => { if(d.rates[c]) rates[c] = +(1 / d.rates[c]).toPrecision(4); });
+    Store.saveTrip({...t, rates, ratesDate: new Date().toLocaleDateString('en-CA')}); toast('Exchange rate updated');
+  } catch(e){ toast(navigator.onLine ? 'Couldn’t get today’s rate. Edit it in Trip settings.' : 'You’re offline. Try again when connected.'); }
+}
+
+/* ---------- driving distance and fuel ---------- */
+const ROUTES = ls.get('routes') || {};
+const rkey = (a, b) => `${a.lat.toFixed(4)},${a.lng.toFixed(4)};${b.lat.toFixed(4)},${b.lng.toFixed(4)}`;
+const DRIVE_DEF = t => { const jp = 'JPY' in (t.rates || {}) || t.currency === 'JPY'; return {on:false, kmL:15, price: jp ? 170 : (t.currency === 'TWD' ? 29 : 1.5), cur: jp ? 'JPY' : t.currency, days:null}; };
+const driveCfg = (t = trip()) => ({...DRIVE_DEF(t), ...(t.drive || {})});
+// every leg between consecutive stops with a location; flights are not driven
+function driveLegs(){
+  const stops = sortItems(tripStops()).filter(i => i.date && hasPin(i)); const legs = []; let prev = null;
+  stops.forEach(i => { if(prev && prev.category !== 'flight' && i.category !== 'flight') legs.push({day:i.date, a:prev, b:i}); prev = i; });
+  return legs;
+}
+// days you drive: from the rental car pickup to its return when we can find them, otherwise any day with a leg
+function defaultDriveDays(legs){
+  const its = sortItems(tripStops()), pick = its.find(i => /rent|租車|rental|pick.?up.*car/i.test(i.title) && !/return|還車/i.test(i.title)), ret = [...its].reverse().find(i => /return|還車/i.test(i.title));
+  const days = [...new Set(legs.map(l => l.day))];
+  return Object.fromEntries(days.map(d => [d, pick ? d >= pick.date && (!ret || d <= ret.date) : true]));
+}
+function legKm(l){ const r = ROUTES[rkey(l.a, l.b)]; return r ? {km: r.km, min: r.min, road: true} : {km: km(l.a, l.b) * 1.3, road: false}; }
+function driveSummary(){
+  const t = trip(), cfg = driveCfg(t), legs = driveLegs(), def = defaultDriveDays(legs), on = d => (cfg.days && d in cfg.days) ? cfg.days[d] : def[d];
+  const days = [...new Set(legs.map(l => l.day))].map(d => { const ls_ = legs.filter(l => l.day === d).map(l => ({...l, ...legKm(l)}));
+    return {d, on: on(d), legs: ls_, km: ls_.reduce((s, l) => s + l.km, 0), est: ls_.some(l => !l.road)}; });
+  const kmTot = days.filter(x => x.on).reduce((s, x) => s + x.km, 0), litres = kmTot / (+cfg.kmL || 15), cost = litres * (+cfg.price || 0);
+  return {cfg, days, kmTot, litres, cost, est: days.some(x => x.on && x.est), missing: legs.filter(l => !ROUTES[rkey(l.a, l.b)]).length};
+}
+let routing = false; const TRIED = new Set();
+async function fetchRoutes(){
+  if(routing || !canFetch() || !navigator.onLine) return; const t = trip(); if(!t || !driveCfg(t).on) return;
+  const legs = driveLegs().filter(l => !ROUTES[rkey(l.a, l.b)] && !TRIED.has(rkey(l.a, l.b))); if(!legs.length) return;
+  legs.forEach(l => TRIED.add(rkey(l.a, l.b)));
+  // chain legs that share stops so one request covers several legs (OSRM public server: about 1 request per second)
+  const chains = []; legs.forEach(l => { const c = chains[chains.length - 1]; if(c && c[c.length - 1].b === l.a && c.length < 20) c.push(l); else chains.push([l]); });
+  routing = true; let done = 0;
+  for(const c of chains){
+    const pts = [c[0].a, ...c.map(l => l.b)].map(p => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';');
+    try { const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${pts}?overview=false`); const d = await r.json();
+      if(d.code === 'Ok') d.routes[0].legs.forEach((g, k) => { ROUTES[rkey(c[k].a, c[k].b)] = {km: +(g.distance / 1000).toFixed(1), min: Math.round(g.duration / 60)}; });
+    } catch(e){}
+    done += c.length; $('#sync').textContent = `Measuring road distances… ${done}/${legs.length}`;
+    await new Promise(r => setTimeout(r, 1100));
+  }
+  ls.set('routes', ROUTES); routing = false; if(S.mode === 'local') showSync(); else $('#sync').textContent = 'Saved to your planner'; render();
+}
+function saveDrive(patch){ const t = trip(); Store.saveTrip({...t, drive: {...driveCfg(t), ...patch}}); if(patch.on) fetchRoutes(); }
+function driveHTML(){
+  const t = trip(), sm = driveSummary(), cfg = sm.cfg, days = tripDays(), H = t.currency;
+  const head = `<div class="ledhead"><h3>Driving &amp; fuel 油錢估算</h3><label class="sw" title="Estimate driving distance and fuel"><input type="checkbox" data-drive="on" ${cfg.on ? 'checked' : ''} ${S.canWrite ? '' : 'disabled'}><i></i></label></div>`;
+  if(!cfg.on) return `<div class="rows drive">${head}<p class="hint">Turn on to see how many km you’ll drive each day and roughly what the fuel will cost.</p></div>`;
+  const fuelC = cfg.cur, inH = conv(sm.cost, fuelC, H), legsNote = sm.est ? (canFetch() ? (routing ? 'Measuring road distances…' : 'Some distances are straight-line × 1.3 until road distances load.') : 'Distances are straight-line × 1.3 here; the GitHub version measures real road distances.') : 'Road distances from OpenStreetMap routing (OSRM).';
+  return `<div class="rows drive">${head}
+    <div class="drivecfg"><label>Fuel use<span><input data-drive="kmL" inputmode="decimal" value="${esc(cfg.kmL)}"> km/L</span></label>
+      <label>Regular fuel price<span><input data-drive="price" inputmode="decimal" value="${esc(cfg.price)}"><select data-drive="cur">${tripCurs(t).map(c => `<option ${c === fuelC ? 'selected' : ''}>${c}</option>`).join('')}</select> per L</span></label></div>
+    ${sm.days.length ? sm.days.map(x => `<label class="drow ${x.on ? '' : 'off'}"><input type="checkbox" data-driveday="${x.d}" ${x.on ? 'checked' : ''}><span><b>Day ${days.indexOf(x.d) + 1}</b> · ${fmtDay(x.d, {weekday:'short', month:'numeric', day:'numeric'})}<small>${x.legs.length} leg${x.legs.length === 1 ? '' : 's'}</small></span>
+      <span class="num">${x.est ? '≈ ' : ''}${Math.round(x.km)} km</span><span class="num">${x.on ? money(x.km / (+cfg.kmL || 15) * (+cfg.price || 0), fuelC) : '–'}</span></label>`).join('')
+      : '<p class="hint">Add locations to your stops to measure the distances.</p>'}
+    <div class="drivetot"><span><b class="num">${Math.round(sm.kmTot).toLocaleString()} km</b> driven · ${sm.litres.toFixed(1)} L</span><span><b class="num">${money(sm.cost, fuelC)}</b>${fuelC !== H && inH != null ? ` <small>≈ ${money(inH)}</small>` : ''}</span></div>
+    <p class="hint">${legsNote} Untick days you won’t drive. Fuel price is a guess: change it to today’s price.</p>
+    <button class="btn needw" data-act="fuelbudget">${tripItems().some(i => i.id === t.id + '-fuel') ? 'Update' : 'Add'} fuel estimate in the budget sheet</button></div>`;
+}
+
 function budgetHTML(){
   const t = trip(), its = tripItems(), H = t.currency, ppl = +t.people || 1;
   const total = its.reduce((s,i) => s + (toHome(i)||0), 0), paid = its.filter(i => i.status === 'paid').reduce((s,i) => s + (toHome(i)||0), 0);
   const missing = [...new Set(its.filter(i => +i.price && toHome(i) == null).map(i => i.currency))];
   const b = +t.budget || 0, days = tripDays();
-  // ledger like the 預算表: one money column per currency, rows grouped by category
+  // ledger like the 預算表: one money column per currency, rows grouped by category, other currencies shown converted
   const priced = its.filter(i => +i.price || i.expense || i.category === 'stay');
-  const curs = [H, ...[...new Set(priced.map(i => i.currency || H))].filter(c => c !== H).sort()];
+  const curs = tripCurs(t);
   const colSum = c => priced.filter(i => (i.currency || H) === c).reduce((s,i) => s + amt(i), 0);
+  const allIn = c => conv(total, H, c);
   const cats = Object.keys(CATS).filter(c => priced.some(i => (i.category || 'other') === c));
   const when = i => i.expense ? esc(i.span || (i.date ? fmtDay(i.date, {month:'numeric', day:'numeric'}) : '')) : (i.date ? fmtDay(i.date, {month:'numeric', day:'numeric'}) : '');
+  const cell = (i, cu) => { const c = i.currency || H, v = amt(i);
+    if(c === cu) return +i.price ? money(v, cu) + ((+i.qty || 1) > 1 ? `<br><small>${money(+i.price, cu)} × ${i.qty}</small>` : '') : '–';
+    const x = +i.price ? conv(v, c, cu) : null; return x == null ? '' : `<span class="cv">≈ ${money(x, cu)}</span>`; };
   const rowsFor = c => sortItems(priced.filter(i => (i.category || 'other') === c)).map((i, n, arr) => {
     const nn = nightOf(i);
     return `<tr data-id="${i.id}">${n === 0 ? `<th class="cat" rowspan="${arr.length}" style="--c:${CATS[c][1]}">${CATS[c][0]}</th>` : ''}
       <td class="num">${nn > 0 ? `${when(i)} 第${nn}晚` : when(i)}</td><td><b>${esc(i.title)}</b>${i.place && i.category === 'stay' ? `<br><small>${esc(i.place)}</small>` : ''}</td>
-      ${curs.map(cu => `<td class="r num">${(i.currency || H) === cu && +i.price ? money(amt(i), cu) + ((+i.qty || 1) > 1 ? `<br><small>${money(+i.price, cu)} × ${i.qty}</small>` : '') : ((i.currency || H) === cu ? '–' : '')}</td>`).join('')}
+      ${curs.map(cu => `<td class="r num">${cell(i, cu)}</td>`).join('')}
       <td class="nt">${esc(i.notes || '')}</td></tr>`; }).join('');
   const byDay = days.map(d => [d, its.filter(i => i.date === d && !i.expense).reduce((s,i) => s + (toHome(i)||0), 0)]);
   const md = Math.max(1, ...byDay.map(x => x[1]));
   return `${missing.length ? `<div class="warnbox">Add an exchange rate for ${missing.join(', ')} in Trip settings so those prices count toward your totals.</div>` : ''}
-   <div class="kpis"><div class="kpi"><b class="num">${money(total)}</b><span>Total 合計</span></div>
+   <div class="kpis"><div class="kpi"><b class="num">${money(total)}</b><span>Total 合計${curs.length > 1 && allIn(curs[1]) != null ? ` · ≈ ${money(allIn(curs[1]), curs[1])}` : ''}</span></div>
    <div class="kpi"><b class="num">${money(total / ppl)}</b><span>Per person 平均${ppl > 1 ? ` (${ppl} people)` : ''}</span></div>
    <div class="kpi"><b class="num">${b ? money(b - total) : '—'}</b><span>${b ? (total > b ? 'Over budget' : 'Left in budget') : 'Set a budget in Trip settings'}</span></div>
    <div class="kpi"><b class="num">${money(total - paid)}</b><span>Not yet paid</span></div></div>
-   <div class="ledhead"><h3>Budget sheet 預算表</h3><button class="btn needw" data-act="expense">+ Add expense</button></div>
+   ${driveHTML()}
+   <div class="ledhead" style="margin-top:18px"><h3>Budget sheet 預算表</h3><button class="btn needw" data-act="expense">+ Add expense</button></div>
    ${cats.length ? `<div class="scroll"><table class="ledger"><thead><tr><th></th><th>Date 日期</th><th>Item</th>${curs.map(c => `<th class="r">${c}</th>`).join('')}<th>Notes 備註</th></tr></thead>
    <tbody>${cats.map(rowsFor).join('')}</tbody>
-   <tfoot><tr><th>合計</th><td></td><td>Total</td>${curs.map(c => `<td class="r num">${money(colSum(c), c)}</td>`).join('')}<td class="nt">${curs.length > 1 ? `= ${money(total)} at your rates` : ''}</td></tr>
-   ${ppl > 1 ? `<tr><th>平均</th><td></td><td>Per person</td>${curs.map(c => `<td class="r num">${money(colSum(c) / ppl, c)}</td>`).join('')}<td class="nt">÷ ${ppl}</td></tr>` : ''}</tfoot></table></div>`
+   <tfoot><tr><th>合計</th><td></td><td>Paid in each currency</td>${curs.map(c => `<td class="r num">${money(colSum(c), c)}</td>`).join('')}<td class="nt"></td></tr>
+   ${curs.length > 1 ? `<tr class="allin"><th></th><td></td><td>Total, all converted</td>${curs.map(c => `<td class="r num">${allIn(c) == null ? '' : money(allIn(c), c)}</td>`).join('')}<td class="nt">at the rate below</td></tr>` : ''}
+   ${ppl > 1 ? `<tr><th>平均</th><td></td><td>Per person</td>${curs.map(c => `<td class="r num">${allIn(c) == null ? '' : money(allIn(c) / ppl, c)}</td>`).join('')}<td class="nt">÷ ${ppl}</td></tr>` : ''}</tfoot></table>${rateLine(t)}</div>`
    : '<p class="hint">Add costs to stops, or add trip-wide expenses like flights, insurance or a WiFi card.</p>'}
    <div class="rows"><h3>Spend by day</h3>${byDay.map(([d,v], n) => `<div class="row"><span>Day ${n+1} · ${fmtDay(d, {month:'numeric', day:'numeric'})}</span><div class="track"><i style="width:${v/md*100}%;background:${DAYC[n % DAYC.length]}"></i></div><span class="num" style="text-align:right">${v ? money(v) : '—'}</span></div>`).join('')}
    <p class="hint">Day totals count costs on stops. Trip-wide expenses only appear in the budget sheet.</p></div>`;
@@ -873,6 +986,7 @@ function openItem(it, preset = {}){
   coords = hasPin(d) ? {lat:d.lat, lng:d.lng} : null; setCoordTxt();
   $('#delItem').hidden = $('#dupItem').hidden = !it;
   $('#sugg').style.display = 'none';
+  updateConv();
   dlg.showModal(); if(!it) F.title.focus();
   itemSnap = formSnap();
 }
@@ -890,6 +1004,13 @@ $('#cancelItem').onclick = () => dlg.close();
 $('#dupItem').onclick = () => { const it = {...readForm(), id:uid(), created:Date.now(), title: F.title.value.trim() + ' (copy)'}; Store.saveItem(it); dlg.close(); toast('Duplicated'); };
 $('#delItem').onclick = async () => { const it = editing; dlg.close(); Store.delItem(it.id); toast(`Deleted “${it.title}”`, () => Store.saveItem(it)); };
 F.expense.addEventListener('change', () => F.classList.toggle('exp', F.expense.checked));
+function updateConv(){
+  const t = trip(), p = parseFloat(String(F.price.value).replace(/[^0-9.\-]/g, '')) || 0, q = Math.max(1, parseFloat(F.qty.value) || 1), c = F.currency.value, el = $('#convHint');
+  if(!t || !p){ el.textContent = ''; return; }
+  const others = tripCurs(t).filter(x => x !== c).map(x => { const v = conv(p * q, c, x, t); return v == null ? null : money(v, x); }).filter(Boolean);
+  el.textContent = (q > 1 ? `Total ${money(p * q, c)}` : '') + (others.length ? `${q > 1 ? ' · ' : ''}≈ ${others.join(' · ≈ ')}` : '');
+}
+['input', 'change'].forEach(ev => [F.price, F.qty, F.currency].forEach(x => x.addEventListener(ev, updateConv)));
 $('#clearCoord').onclick = () => { coords = null; setCoordTxt(); };
 // place autocomplete
 const regionName = (() => { try { const dn = new Intl.DisplayNames(['en'], {type:'region'}); return c => { try { return dn.of(c); } catch(e){ return c; } }; } catch(e){ return c => c; } })();
@@ -1205,7 +1326,8 @@ document.querySelector('.tabs').onclick = e => { const b = e.target.closest('[da
 $('#days').onclick = e => { const b = e.target.closest('[data-day]'); if(!b) return; S.day = b.dataset.day; S.sel = null; renderDays(); renderView(); renderMap(); };
 $('#view').addEventListener('submit', e => { if(e.target.id !== 'ckForm') return; e.preventDefault(); const v = $('#ckIn').value.trim(); if(!v) return; saveChecklist([...(trip().checklist || []), {id:uid(), text:v, done:false}]); setTimeout(() => $('#ckIn')?.focus(), 0); });
 $('#view').addEventListener('click', e => {
-  const a = e.target.closest('[data-act]'); if(a){ ({newtrip:() => openTrip(null), import:() => $('#fileIn').click(), sample:loadSample, expense:() => openItem(null, {expense:true, category:'other', date:''})})[a.dataset.act](); return; }
+  const a = e.target.closest('[data-act]'); if(a){ ({newtrip:() => openTrip(null), import:() => $('#fileIn').click(), sample:loadSample, expense:() => openItem(null, {expense:true, category:'other', date:''}),
+    fxupdate:updateRates, fxedit:() => openTrip(trip()), fuelbudget:addFuelExpense})[a.dataset.act](); return; }
   if(e.target.closest('a')) return;
   const ck = e.target.closest('[data-ck]'); if(ck){ const cl = (trip().checklist || []).map(c => c.id === ck.dataset.ck ? {...c, done: ck.checked} : c); saveChecklist(cl); return; }
   const cd = e.target.closest('[data-ckdel]'); if(cd){ const old = trip().checklist || []; const gone = old.find(c => c.id === cd.dataset.ckdel); saveChecklist(old.filter(c => c !== gone)); toast('Item removed', () => saveChecklist([...(trip().checklist || []), gone])); return; }
@@ -1220,6 +1342,18 @@ $('#view').addEventListener('click', e => {
   if(e.target.closest('.more')) return;
   const st = e.target.closest('.stop'); if(st){ const id = st.dataset.id; select(S.sel === id ? null : id); } // tap again to deselect; the map never moves
 });
+$('#view').addEventListener('change', e => {
+  const k = e.target.dataset.drive; if(k){ const v = k === 'on' ? e.target.checked : k === 'cur' ? e.target.value : (parseFloat(e.target.value) || 0); saveDrive({[k]: v}); return; }
+  const d = e.target.dataset.driveday; if(d){ const sm = driveSummary(); const days = Object.fromEntries(sm.days.map(x => [x.d, x.on])); days[d] = e.target.checked; saveDrive({days}); }
+});
+$('#tripBar').addEventListener('click', e => { if(e.target.closest('[data-act="gobudget"]')){ S.tab = 'budget'; ls.set('tab', 'budget'); renderTabs(); renderView(); setTimeout(() => document.querySelector('.drive')?.scrollIntoView({behavior:'smooth', block:'start'}), 50); } });
+function addFuelExpense(){
+  const t = trip(), sm = driveSummary(), id = t.id + '-fuel', old = S.items.find(i => i.id === id);
+  Store.saveItem({...(old || {created: Date.now(), status:'planned', link:''}), id, tripId:t.id, expense:true, category:'transport', title:'Fuel estimate 油錢', date:'', time:'', end:'', place:'',
+    span: `${Math.round(sm.kmTot)} km`, price: Math.round(sm.cost), currency: sm.cfg.cur, qty:1,
+    notes: `Estimate: ${Math.round(sm.kmTot)} km ÷ ${sm.cfg.kmL} km/L = ${sm.litres.toFixed(1)} L × ${sm.cfg.price} ${sm.cfg.cur}/L`});
+  toast(old ? 'Fuel estimate updated in the budget sheet' : 'Fuel estimate added to the budget sheet');
+}
 $('#view').addEventListener('dblclick', e => { const st = e.target.closest('.stop'); if(st && S.canWrite && !e.target.closest('.rowacts')) openItem(S.items.find(i => i.id === st.dataset.id)); });
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape' && !picking && S.sel && !document.querySelector('dialog[open]')) select(null); if(e.key === 'Escape' && picking) endPick(); if(e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement === document.body && trip() && !document.querySelector('dialog[open]')) openItem(null); });

@@ -7,6 +7,8 @@ Plan trips day by day: stops, times, costs and a map, in one page that works off
 - **Itinerary** – day cards with times, numbered stops, drive times and distances. Drag stops to reorder them or move them to another day; times that no longer make sense turn red.
 - **Map** – numbered markers in each day's colour, routes that link each day to the next, and markers in the same spot shown side by side.
 - **Budget** – a budget sheet grouped by category (flights, stays, transport, ETC pass, tickets, food, SIM card, insurance…), with a column per currency, totals and per-person cost.
+- **Driving & fuel** – turn it on in the Budget tab to see road kilometres per day and for the whole trip (OpenStreetMap routing), with a fuel cost estimate from your car's km/L and the price per litre. Add the estimate to the budget sheet in one tap.
+- **Currencies** – every amount in the budget sheet is also shown in your other currency, with totals in each and a button to update to today's exchange rate.
 - **Checklist** – a to-do and packing list for each trip, with suggestions based on the trip.
 - **Import and export** – bring in an Excel or CSV itinerary (English, Spanish and Chinese column names are recognised) and export a trip back to Excel.
 - **Offline** – install it on your phone's home screen. It opens and saves without internet, and map areas you have viewed stay available.
@@ -40,3 +42,5 @@ It is a static site with no build step.
 - Country outlines: Natural Earth, via [world-atlas](https://github.com/topojson/world-atlas)
 - Cities: GeoNames (CC BY 4.0), via [all-the-cities](https://github.com/zeke/all-the-cities)
 - Online place search: OpenStreetMap Nominatim
+- Road distances: OSRM public routing server (OpenStreetMap data)
+- Exchange rates: ExchangeRate-API open access (open.er-api.com)
