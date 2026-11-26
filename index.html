@@ -85,7 +85,13 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 /* day cards */
 .day{margin-top:14px;background:var(--card);border-radius:22px;box-shadow:var(--shadow);padding:6px 18px 10px;border:1px solid var(--line)}
 .dayhead{display:flex;align-items:center;gap:12px;padding:12px 0 12px;border-bottom:1px solid var(--line)}
-.dayhead .dn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:#fff;font:700 17px Inter,sans-serif;flex:none}
+.dayhead .dn{width:44px;height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;font:700 18px/1 Inter,sans-serif;flex:none}
+.dayhead .dn small{font-size:10px;font-weight:600;letter-spacing:.02em;opacity:.9;margin-bottom:2px;text-transform:lowercase}
+.dayhead h2.dt{cursor:text;border-radius:8px;margin:-2px -6px;padding:2px 6px}
+.dayhead h2.dt:hover{background:var(--panel)}
+.dayhead h2 .ph{color:var(--muted);font-weight:500}
+.dayhead .dtin{font:700 19px Inter,sans-serif;width:100%;padding:4px 8px;border:1px solid var(--blue2);border-radius:8px;background:var(--card);color:var(--ink)}
+.dayhead > div:nth-child(2){flex:1;min-width:0}
 .dayhead h2{font-size:19px;font-weight:700;line-height:1.2}
 .dayhead .d{display:block;color:var(--muted);font-size:13px;font-weight:500;margin-top:1px}
 .dayhead .t{margin-left:auto;font-size:13px;font-weight:600;color:var(--ink2);background:var(--panel);border-radius:999px;padding:4px 10px}
@@ -270,12 +276,14 @@ label.f{display:grid;gap:4px;font-size:13px;font-weight:600;color:var(--muted)}
 .f input,.f select,.f textarea{min-height:44px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card);font-size:16px;font-weight:400;color:var(--ink);width:100%}
 .f textarea{min-height:76px;resize:vertical}
 .cats{display:flex;flex-wrap:wrap;gap:6px}
-.cats label{cursor:pointer}
+.cats label{cursor:pointer;flex:none;position:relative}
 .cats input{position:absolute;opacity:0;pointer-events:none}
 .cats span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:0 12px;min-height:38px;font-size:14px;font-weight:600;color:var(--ink)}
 .cats span i{width:10px;height:10px;border-radius:50%}
 .cats input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .cats input:focus-visible+span{outline:3px solid var(--blue2)}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;min-width:0;max-width:100%;width:100%;display:block;text-align:left}
+input[type=date]::-webkit-date-and-time-value,input[type=time]::-webkit-date-and-time-value{text-align:left;margin:0}
 .placebox{position:relative}
 .sugg{position:absolute;left:0;right:0;top:100%;z-index:5;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.18);overflow:hidden;display:none}
 .sugg button{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;min-height:44px;font-size:15px}
@@ -796,6 +804,19 @@ function stopHTML(i, prev, fromNight, bad){
 // last pinned stop of the day before d, so day N+1 continues from day N
 function prevDayLast(d){ if(!d) return null; const all = sortItems(tripStops()).filter(i => i.date && i.date < d && hasPin(i)); return all[all.length - 1] || null; }
 function dayArea(list){ const st = list.find(i => i.category === 'stay' && i.place) || [...list].reverse().find(i => i.place && hasPin(i)) || list.find(i => i.place); return st ? st.place.split(',')[0].trim() : ''; }
+// rename a day inline; empty = no title. Stored per date on the trip (t.dayNames)
+function editDayTitle(h){
+  const d = h.dataset.dtitle, t = trip(); if(!t) return;
+  const cur = h.querySelector('.ph') ? '' : h.textContent.trim();
+  h.innerHTML = `<input class="dtin" maxlength="60" placeholder="Day title (leave empty for none)" enterkeyhint="done">`;
+  const inp = h.firstChild; inp.value = cur; inp.focus(); inp.select();
+  let done = false;
+  const finish = save => { if(done) return; done = true;
+    if(save){ const v = inp.value.trim(); if(v !== cur){ Store.saveTrip({...trip(), dayNames: {...(trip().dayNames || {}), [d]: v}}); return; } }
+    renderView(); };
+  inp.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); finish(true); } else if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); finish(false); } };
+  inp.onblur = () => finish(true);
+}
 let SEQ = new Map();
 function itinHTML(){
   SEQ = seqMap();
@@ -809,7 +830,8 @@ function itinHTML(){
     const sub = list.reduce((s,i) => s + (toHome(i)||0), 0), bad = timeIssues(list), area = dayArea(list), dn = days.indexOf(d) + 1;
     let prev = prevDayLast(d), first = true;
     const rows = list.map(i => { const h = stopHTML(i, prev, first && !!prev, bad.get(i.id)); if(hasPin(i)){ prev = i; first = false; } return h; }).join('');
-    const head = d ? `<div class="dn" style="background:${dayColor(d)}">${dn}</div><div><h2>Day ${dn}${area ? ' — ' + esc(area) : ''}</h2><span class="d">${fmtDay(d, {weekday:'long', month:'short', day:'numeric'})}</span></div>`
+    const named = trip()?.dayNames || {}, title = d && Object.prototype.hasOwnProperty.call(named, d) ? named[d] : area;
+    const head = d ? `<div class="dn" style="background:${dayColor(d)}"><small>day</small>${dn}</div><div><h2 class="${S.canWrite ? 'dt' : ''}" data-dtitle="${d}" title="${S.canWrite ? 'Tap to rename this day' : ''}">${title ? esc(title) : S.canWrite ? '<span class="ph">Add a title</span>' : ''}</h2><span class="d">${fmtDay(d, {weekday:'long', month:'short', day:'numeric'})}</span></div>`
                    : `<div class="dn" style="background:#6b7785">?</div><div><h2>Unscheduled</h2><span class="d">No date yet</span></div>`;
     const dk = driveCfg().on ? driveSummary().days.find(x => x.d === d && x.on) : null;
     return `<section class="day" data-day="${d}"><div class="dayhead">${head}<span class="dh-r">${dk ? `<span class="t num">${dk.est ? '≈ ' : ''}${Math.round(dk.km)} km</span>` : ''}${sub ? `<span class="t num">${money(sub)}</span>` : ''}</span></div>${rows}
@@ -1539,6 +1561,8 @@ $('#view').addEventListener('click', e => {
   const cs = e.target.closest('[data-cksug]'); if(cs){ const x = suggestions()[+cs.dataset.cksug]; if(x) saveChecklist([...(trip().checklist || []), {id:uid(), text:x, done:false}]); return; }
   if(e.target.closest('[data-cksugall]')){ saveChecklist([...(trip().checklist || []), ...suggestions().map(x => ({id:uid(), text:x, done:false}))]); return; }
   const cy = e.target.closest('[data-cycle]'); if(cy){ e.stopPropagation(); const it = S.items.find(i => i.id === cy.dataset.cycle); const ks = Object.keys(STAT); Store.saveItem({...it, status: ks[(ks.indexOf(it.status || 'planned') + 1) % ks.length]}); return; }
+  const dt = e.target.closest('[data-dtitle]'); if(dt && S.canWrite && !dt.querySelector('input')){ editDayTitle(dt); return; }
+  if(e.target.closest('.dtin')) return;
   const ad = e.target.closest('[data-add]'); if(ad){ openItem(null, {date: ad.dataset.add}); return; }
   const th = e.target.closest('[data-sort]'); if(th){ const k = th.dataset.sort; S.sort = {k, d: S.sort.k === k ? -S.sort.d : 1}; renderView(); return; }
   const tr = e.target.closest('tr[data-id], .lrow[data-id]'); if(tr){ openItem(S.items.find(i => i.id === tr.dataset.id)); return; }
