@@ -168,6 +168,19 @@ tfoot td{font-weight:700;border-bottom:0}
 .sharebox{display:grid;gap:4px}.sharebox .ck li{min-height:44px}
 .dh-r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.dh-r .t{margin-left:0}
 button.fact{cursor:pointer;font:inherit;font-size:14px}button.fact:hover{border-color:var(--ink2)}
+.ledlist{display:none}
+.lgrp{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:4px 14px 6px;margin-bottom:10px}
+.lgh{display:flex;align-items:center;gap:8px;padding:10px 0 8px;font-weight:700;font-size:15px;border-bottom:1px solid var(--line)}
+.lgh i{width:10px;height:10px;border-radius:50%}.lgh .num{margin-left:auto;font-weight:600;color:var(--ink2);font-size:14px}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;width:100%;text-align:left;border:0;background:none;padding:10px 0;border-top:1px dashed var(--line);color:var(--ink)}
+.lgh + .lrow{border-top:0}
+.lrow .l1{display:grid;gap:2px}.lrow b{font-weight:600;font-size:15px;line-height:1.3}
+.lrow small{color:var(--muted);font-size:12.5px;line-height:1.35}.lrow .ln{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.lrow .l2{display:grid;gap:1px;text-align:right;align-content:start}.lrow .l2 .none{color:var(--muted);font-weight:500}
+.ltot{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:6px 14px;display:grid}
+.ltot div{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:9px 0;border-top:1px dashed var(--line);font-size:14px;color:var(--ink2)}
+.ltot div:first-child{border-top:0}.ltot b{text-align:right;color:var(--ink)}.ltot .big b{font-size:16px}
+.ledlist .rateline{border:0;padding:12px 4px 0}
 .cv{color:var(--muted);font-size:12.5px;font-weight:500}
 .ledger tr.allin td{color:var(--ink);font-weight:700}
 .rateline{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 8px 6px;font-size:13px;color:var(--ink2);border-top:1px solid var(--line)}
@@ -304,7 +317,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
 }
 @media(max-width:600px){
  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
- .stop,.h12 .stop{grid-template-columns:44px 24px minmax(0,1fr);gap:0 10px;padding-right:72px}
+ .stop,.h12 .stop{grid-template-columns:44px 24px minmax(0,1fr);gap:0 10px}
  .stop .price{grid-column:3;text-align:left;margin-top:2px}.price small{display:inline;margin-left:6px}
  .time{font-size:14px}.day{padding:4px 14px 8px;border-radius:18px}
  .band{padding:8px 12px 10px}
@@ -316,6 +329,8 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
  .facts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-14px;padding-right:14px}.facts::-webkit-scrollbar{display:none}
  .brand{display:none}
  .row{grid-template-columns:84px minmax(0,1fr) 84px}
+ .ledtable{display:none}.ledlist{display:block}
+ .stop,.h12 .stop{padding-right:46px}.rowacts [data-edit-row]{display:none}.rowacts{top:4px}.rowacts .grip{height:44px;width:40px;opacity:.6}
  .band .btn .lbl{display:none}
  table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6.5em;margin-inline-start:-7em;color:var(--muted)}.stack td:empty{display:none}.stack tfoot td::before{content:""}
 }
@@ -893,6 +908,22 @@ function driveHTML(){
     <button class="btn needw" data-act="fuelbudget">${tripItems().some(i => i.id === t.id + '-fuel') ? 'Update' : 'Add'} fuel estimate in the budget sheet</button></div>`;
 }
 
+// phones: the budget sheet as a grouped list (name and date left, amount and its conversion right)
+function ledgerListHTML(t, cats, priced, curs, colSum, allIn, ppl, when){
+  const H = t.currency;
+  const row = i => { const c = i.currency || H, v = amt(i), q = +i.qty || 1, nn = nightOf(i);
+    const others = +i.price ? curs.filter(x => x !== c).map(x => { const y = conv(v, c, x); return y == null ? '' : `<small>≈ ${money(y, x)}</small>`; }).join('') : '';
+    const sub = [nn > 0 ? `${when(i)} · Night ${nn}` : when(i), i.category === 'stay' && i.place ? esc(i.place) : ''].filter(Boolean).join(' · ');
+    return `<button class="lrow" data-id="${i.id}"><span class="l1"><b>${esc(i.title)}</b>${sub ? `<small>${sub}</small>` : ''}${i.notes ? `<small class="ln">${esc(i.notes)}</small>` : ''}</span>
+      <span class="l2 num">${+i.price ? `<b>${money(v, c)}</b>${q > 1 ? `<small>${money(+i.price, c)} × ${q}</small>` : ''}${others}` : '<b class="none">–</b>'}</span></button>`; };
+  const catTotal = c => priced.filter(i => (i.category || 'other') === c).reduce((s, i) => s + (toHome(i) || 0), 0);
+  return `<div class="ledlist">${cats.map(c => `<section class="lgrp"><div class="lgh"><i style="background:${CATS[c][1]}"></i><span>${CATS[c][0]}</span><span class="num">${catTotal(c) ? money(catTotal(c)) : ''}</span></div>
+      ${sortItems(priced.filter(i => (i.category || 'other') === c)).map(row).join('')}</section>`).join('')}
+    <div class="ltot">${curs.map(c => `<div><span>Paid in ${c}</span><b class="num">${money(colSum(c), c)}</b></div>`).join('')}
+      ${curs.length > 1 ? `<div class="big"><span>Total, all converted</span><b class="num">${curs.map(c => allIn(c) == null ? '' : money(allIn(c), c)).filter(Boolean).join('<br>')}</b></div>` : ''}
+      ${ppl > 1 ? `<div><span>Per person (÷ ${ppl})</span><b class="num">${curs.map(c => allIn(c) == null ? '' : money(allIn(c) / ppl, c)).filter(Boolean).join('<br>')}</b></div>` : ''}</div>
+    ${rateLine(t)}</div>`;
+}
 function budgetHTML(){
   const t = trip(), its = tripItems(), H = t.currency, ppl = +t.people || 1;
   const total = its.reduce((s,i) => s + (toHome(i)||0), 0), paid = its.filter(i => i.status === 'paid').reduce((s,i) => s + (toHome(i)||0), 0);
@@ -923,7 +954,7 @@ function budgetHTML(){
    <div class="kpi"><b class="num">${money(total - paid)}</b><span>Not yet paid</span></div></div>
    ${driveHTML()}
    <div class="ledhead" style="margin-top:18px"><h3>Budget sheet 預算表</h3><button class="btn needw" data-act="expense">+ Add expense</button></div>
-   ${cats.length ? `<div class="scroll"><table class="ledger"><thead><tr><th></th><th>Date 日期</th><th>Item</th>${curs.map(c => `<th class="r">${c}</th>`).join('')}<th>Notes 備註</th></tr></thead>
+   ${cats.length ? `${ledgerListHTML(t, cats, priced, curs, colSum, allIn, ppl, when)}<div class="scroll ledtable"><table class="ledger"><thead><tr><th></th><th>Date 日期</th><th>Item</th>${curs.map(c => `<th class="r">${c}</th>`).join('')}<th>Notes 備註</th></tr></thead>
    <tbody>${cats.map(rowsFor).join('')}</tbody>
    <tfoot><tr><th>合計</th><td></td><td>Paid in each currency</td>${curs.map(c => `<td class="r num">${money(colSum(c), c)}</td>`).join('')}<td class="nt"></td></tr>
    ${curs.length > 1 ? `<tr class="allin"><th></th><td></td><td>Total, all converted</td>${curs.map(c => `<td class="r num">${allIn(c) == null ? '' : money(allIn(c), c)}</td>`).join('')}<td class="nt">at the rate below</td></tr>` : ''}
@@ -1504,7 +1535,7 @@ $('#view').addEventListener('click', e => {
   const cy = e.target.closest('[data-cycle]'); if(cy){ e.stopPropagation(); const it = S.items.find(i => i.id === cy.dataset.cycle); const ks = Object.keys(STAT); Store.saveItem({...it, status: ks[(ks.indexOf(it.status || 'planned') + 1) % ks.length]}); return; }
   const ad = e.target.closest('[data-add]'); if(ad){ openItem(null, {date: ad.dataset.add}); return; }
   const th = e.target.closest('[data-sort]'); if(th){ const k = th.dataset.sort; S.sort = {k, d: S.sort.k === k ? -S.sort.d : 1}; renderView(); return; }
-  const tr = e.target.closest('tr[data-id]'); if(tr){ openItem(S.items.find(i => i.id === tr.dataset.id)); return; }
+  const tr = e.target.closest('tr[data-id], .lrow[data-id]'); if(tr){ openItem(S.items.find(i => i.id === tr.dataset.id)); return; }
   if(e.target.closest('.grip')) return;
   const ed = e.target.closest('[data-edit-row]'); if(ed){ openItem(S.items.find(i => i.id === ed.dataset.editRow)); return; }
   if(e.target.closest('.more')) return;
