@@ -280,10 +280,27 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
 .toast.on{opacity:1;transform:translateX(-50%);pointer-events:auto}
 .toast button{background:none;border:0;color:var(--coral);font-weight:700;min-height:40px;padding:0 12px}
 .ro .needw{display:none!important}
+.maptop,.mapsel,.mapfab{display:none}
+/* phones and small tablets: the list fills the screen; the map opens full screen from the Map button */
 @media(max-width:900px){
  .layout{grid-template-columns:minmax(0,1fr)}
- .mapwrap{position:relative;height:44vh;min-height:300px;padding:10px 10px 0;order:-1}
- .mapcard{border-radius:18px}
+ .mapwrap{display:none}
+ body.mapopen{overflow:hidden}
+ body.mapopen .mapwrap{display:block;position:fixed;inset:0;z-index:950;height:auto;padding:0;background:var(--bg)}
+ body.mapopen .mapcard{border-radius:0;border:0;box-shadow:none;height:100%}
+ .maptop{display:flex;align-items:center;gap:8px;position:absolute;z-index:700;left:10px;right:0;top:calc(10px + env(safe-area-inset-top))}
+ .mapback{flex:none;min-height:40px;padding:0 14px 0 8px;box-shadow:var(--shadow)}
+ .mapdays{flex:1;padding:2px 10px 6px 0}.mapdays .chip{box-shadow:var(--shadow)}
+ .mapsel:not([hidden]){display:grid;grid-template-columns:28px minmax(0,1fr);gap:4px 12px;position:absolute;z-index:700;left:10px;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));background:var(--card);border-radius:18px;padding:14px 14px 12px;box-shadow:0 8px 28px rgba(0,0,0,.22)}
+ .mapsel .dot{margin-top:2px}.mapsel h3{font:600 16px/1.3 Inter,sans-serif}.mapsel .meta{margin-top:2px}
+ .mapsel .acts{grid-column:1 / -1;display:flex;gap:8px;margin-top:8px}.mapsel .acts .btn{flex:1;justify-content:center}
+ .mapsel:not([hidden]) ~ .maplegend{display:none}
+ .maplegend{bottom:calc(12px + env(safe-area-inset-bottom))}
+ .leaflet-control-zoom{display:none}
+ .mapfab{display:inline-flex;position:fixed;z-index:800;right:16px;bottom:calc(18px + env(safe-area-inset-bottom));background:var(--ink);color:var(--bg);border-color:var(--ink);min-height:48px;padding:0 20px;box-shadow:0 8px 24px rgba(0,0,0,.28);zoom:var(--z,1)}
+ body.mapopen .mapfab,body[data-tab=budget] .mapfab,body[data-tab=check] .mapfab,body.notrip .mapfab{display:none}
+ .panel{padding-bottom:96px}
+ .mk .lb{max-width:150px}
 }
 @media(max-width:600px){
  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
@@ -345,12 +362,15 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
     </div>
     <div id="view"></div>
   </section>
-  <section class="mapwrap">
+  <section class="mapwrap" aria-label="Map">
     <div class="mapcard"><div id="map"></div>
+    <div class="maptop"><button class="btn mapback" id="mapClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 6l-6 6 6 6"/></svg>List</button><div class="days mapdays" id="mapDays"></div></div>
+    <div class="mapsel" id="mapSel" hidden></div>
     <div class="maplegend" id="legend" hidden></div>
     <div class="mapnote" id="mapnote">Map data: Natural Earth, GeoNames</div></div>
   </section>
 </main>
+<button class="btn mapfab" id="mapOpen" aria-label="Show map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14"/></svg>Map</button>
 
 <div class="pickbar" id="pickbar"><span>Tap the map to set this stop's location</span><button class="btn" id="pickCancel">Cancel</button></div>
 <div class="toast" id="toast"><span id="toastMsg"></span><button id="toastBtn">Undo</button></div>
@@ -700,13 +720,14 @@ function renderTripBar(){
     when ? `<span class="fact">${FI.clock}${when}</span>` : ''].join('');
 }
 function renderDays(){
-  const el = $('#days'); if(!trip()){ el.innerHTML = ''; return; }
+  const el = $('#days'); if(!trip()){ el.innerHTML = ''; $('#mapDays').innerHTML = ''; return; }
   const days = tripDays(), un = tripStops().some(i => !i.date);
   el.innerHTML = `<button class="chip" data-day="all" aria-pressed="${S.day === 'all'}">All days</button>` +
     days.map((d, n) => `<button class="chip" data-day="${d}" aria-pressed="${S.day === d}"><i style="background:${DAYC[n % DAYC.length]}"></i>Day ${n+1} · ${fmtDay(d, {weekday:'short', day:'numeric'})}</button>`).join('') +
     (un ? `<button class="chip" data-day="none" aria-pressed="${S.day === 'none'}">Unscheduled</button>` : '');
+  $('#mapDays').innerHTML = el.innerHTML;
 }
-function renderTabs(){ document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab)); const side = S.tab === 'budget' || S.tab === 'check'; $('#days').hidden = side; document.querySelector('.tools').hidden = side || !trip(); }
+function renderTabs(){ document.body.dataset.tab = S.tab; document.body.classList.toggle('notrip', !trip()); document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab)); const side = S.tab === 'budget' || S.tab === 'check'; $('#days').hidden = side; document.querySelector('.tools').hidden = side || !trip(); }
 function visibleItems(){
   const q = S.q.trim().toLowerCase();
   return sortItems((S.tab === 'table' ? tripItems() : tripStops()).filter(i => !(SET.hideIdeas && i.status === 'idea' && S.tab !== 'table')).filter(i => (S.day === 'all' || (S.day === 'none' ? !i.date : i.date === S.day)) && (!q || [i.title, i.place, i.notes, CATS[i.category]?.[0]].join(' ').toLowerCase().includes(q))));
@@ -1003,7 +1024,7 @@ function renderMap(fit){
   { const ground = pts.filter(p => !p[2]); const use = (S.day !== 'all' || !ground.length ? pts : ground).slice(); pts.length = 0; use.forEach(p => pts.push([p[0], p[1]])); }
   const key = S.tripId + '|' + S.day;
   drawPins();
-  if((fit || key !== lastFitKey) && pts.length){ lastFitKey = key; pts.length === 1 ? map.setView(pts[0], tilesOK ? 14 : 10) : map.fitBounds(pts, {paddingTopLeft:[90, 70], paddingBottomRight:[S.day !== 'all' ? Math.min(230, map.getSize().x * .35) : 90, 56], maxZoom:tilesOK ? 15 : 12}); }
+  if((fit || key !== lastFitKey) && pts.length){ lastFitKey = key; pts.length === 1 ? map.setView(pts[0], tilesOK ? 14 : 10) : map.fitBounds(pts, {paddingTopLeft:[map.getSize().x < 600 ? 40 : 90, map.getSize().x < 600 ? 80 : 70], paddingBottomRight:[S.day !== 'all' ? Math.min(230, map.getSize().x * (map.getSize().x < 600 ? .5 : .35)) : 90, 56], maxZoom:tilesOK ? 15 : 12}); }
   else if(key !== lastFitKey) lastFitKey = key;
 }
 /* markers that overlap on screen (same place on different days, or crowded when zoomed out) stack into a column */
@@ -1039,10 +1060,37 @@ function drawPins(){
 map.on('zoomend', drawPins);
 // select a stop (or null to clear): expands its row and enlarges its marker; never moves the map
 function select(id, scroll){
-  S.sel = id; renderView(); drawPins();
+  S.sel = id; renderView(); drawPins(); renderMapSel();
   if(id && scroll){ const row = document.querySelector(`.stop[data-id="${id}"]`); if(row) row.scrollIntoView({block:'nearest', behavior:'smooth'}); }
 }
 function highlight(scroll){ select(S.sel, scroll); }
+/* phone map: open full screen, back to the list, and a card for the tapped stop */
+const phone = matchMedia('(max-width:900px)');
+const mapOpen = () => document.body.classList.contains('mapopen');
+function openMap(){
+  if(mapOpen()) return; document.body.classList.add('mapopen');
+  try { history.pushState({ppmap: 1}, ''); } catch(e){}
+  requestAnimationFrame(() => { map.invalidateSize(); renderMap(true); renderMapSel(); });
+}
+function closeMap(fromHistory){
+  if(!mapOpen()) return; document.body.classList.remove('mapopen'); $('#mapSel').hidden = true;
+  if(!fromHistory && history.state?.ppmap){ try { history.back(); } catch(e){} }
+  if(S.sel) setTimeout(() => document.querySelector(`.stop[data-id="${S.sel}"]`)?.scrollIntoView({block:'center'}), 30);
+}
+addEventListener('popstate', () => closeMap(true));
+$('#mapOpen').onclick = openMap; $('#mapClose').onclick = () => closeMap();
+phone.addEventListener('change', () => { if(!phone.matches) closeMap(); requestAnimationFrame(() => map.invalidateSize()); });
+function renderMapSel(){
+  const box = $('#mapSel'), it = S.sel && S.items.find(i => i.id === S.sel);
+  if(!phone.matches || !mapOpen() || !it){ box.hidden = true; return; }
+  const num = seqMap().get(it.id), c = CATS[it.category] || CATS.other, days = tripDays();
+  box.innerHTML = `<div class="dot" style="--c:${stopColor(it)}">${num || ''}</div><div><h3>${esc(it.title)}</h3>
+    <div class="meta"><span>${it.date ? 'Day ' + (days.indexOf(it.date) + 1) : 'Unscheduled'}${it.time ? ' · ' + fmtTime(it.time) : ''}</span><span>${icon(it.category)}${esc(c[0].split(' ')[0])}</span>${it.place ? `<span>${esc(it.place)}</span>` : ''}</div></div>
+    <div class="acts"><button class="btn" data-ms="list">Show in list</button>${S.canWrite ? `<button class="btn primary" data-ms="edit">Edit</button>` : ''}</div>`;
+  box.hidden = false;
+}
+$('#mapSel').addEventListener('click', e => { const b = e.target.closest('[data-ms]'); if(!b) return; const id = S.sel;
+  if(b.dataset.ms === 'list') closeMap(); else { closeMap(); openItem(S.items.find(i => i.id === id)); } });
 map.on('click', () => { if(!picking && S.sel) select(null); });
 
 /* ---------- item dialog ---------- */
@@ -1117,8 +1165,9 @@ function pickSugg(i){ const c = suggList[i]; F.place.value = c[5] ? c[5].split('
 $('#sugg').addEventListener('mousedown', e => { const b = e.target.closest('[data-s]'); if(b){ e.preventDefault(); pickSugg(+b.dataset.s); } });
 // pick on map
 let picking = false;
-$('#pickMap').onclick = () => { picking = true; dlg.close(); document.body.classList.add('picking'); if(window.innerWidth <= 900) $('.mapwrap').scrollIntoView({behavior:'smooth'}); };
-function endPick(){ picking = false; document.body.classList.remove('picking'); dlg.showModal(); }
+let pickOpenedMap = false;
+$('#pickMap').onclick = () => { picking = true; dlg.close(); document.body.classList.add('picking'); pickOpenedMap = phone.matches && !mapOpen(); if(pickOpenedMap) openMap(); };
+function endPick(){ picking = false; document.body.classList.remove('picking'); if(pickOpenedMap){ pickOpenedMap = false; closeMap(); } dlg.showModal(); }
 $('#pickCancel').onclick = endPick;
 map.on('click', e => { if(!picking) return; coords = {lat:e.latlng.lat, lng:((e.latlng.lng + 540) % 360) - 180}; setCoordTxt(); endPick(); });
 // Find with Claude
@@ -1442,7 +1491,7 @@ $('#addBtn').onclick = () => openItem(null);
 $('#q').oninput = e => { S.q = e.target.value; renderView(); renderMap(); };
 $('#pickCancel').onclick = endPick;
 document.querySelector('.tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if(!b) return; S.tab = b.dataset.tab; ls.set('tab', S.tab); renderTabs(); renderView(); };
-$('#days').onclick = e => { const b = e.target.closest('[data-day]'); if(!b) return; S.day = b.dataset.day; S.sel = null; renderDays(); renderView(); renderMap(); };
+$('#days').onclick = $('#mapDays').onclick = e => { const b = e.target.closest('[data-day]'); if(!b) return; S.day = b.dataset.day; S.sel = null; renderDays(); renderView(); renderMap(); renderMapSel(); };
 $('#view').addEventListener('submit', e => { if(e.target.id !== 'ckForm') return; e.preventDefault(); const v = $('#ckIn').value.trim(); if(!v) return; saveChecklist([...(trip().checklist || []), {id:uid(), text:v, done:false}]); setTimeout(() => $('#ckIn')?.focus(), 0); });
 $('#view').addEventListener('click', e => {
   const a = e.target.closest('[data-act]'); if(a){ ({newtrip:() => openTrip(null), import:() => $('#fileIn').click(), sample:loadSample, expense:() => openItem(null, {expense:true, category:'other', date:''}),
@@ -1475,7 +1524,7 @@ function addFuelExpense(){
 }
 $('#view').addEventListener('dblclick', e => { const st = e.target.closest('.stop'); if(st && S.canWrite && !e.target.closest('.rowacts')) openItem(S.items.find(i => i.id === st.dataset.id)); });
 
-document.addEventListener('keydown', e => { if(e.key === 'Escape' && !picking && S.sel && !document.querySelector('dialog[open]')) select(null); if(e.key === 'Escape' && picking) endPick(); if(e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement === document.body && trip() && !document.querySelector('dialog[open]')) openItem(null); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !picking && !S.sel && mapOpen() && !document.querySelector('dialog[open]')) closeMap(); if(e.key === 'Escape' && !picking && S.sel && !document.querySelector('dialog[open]')) select(null); if(e.key === 'Escape' && picking) endPick(); if(e.key === 'n' && !e.metaKey && !e.ctrlKey && document.activeElement === document.body && trip() && !document.querySelector('dialog[open]')) openItem(null); });
 
 /* ---------- backup and restore ---------- */
 async function saveFile(name, blob){
