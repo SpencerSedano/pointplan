@@ -219,6 +219,7 @@ button.fact{cursor:pointer;font:inherit;font-size:14px}button.fact:hover{border-
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card);color:var(--ink)}
 .leaflet-bar{border:0!important;box-shadow:var(--shadow)!important;border-radius:12px!important;overflow:hidden}
 .leaflet-bar a{background:var(--card);color:var(--ink);border-color:var(--line)}
+.leaflet-bar a,.leaflet-touch .leaflet-bar a{width:38px;height:38px;line-height:38px;font-size:20px}
 .maplegend{position:absolute;left:12px;bottom:12px;z-index:500;background:var(--card);border-radius:999px;padding:6px 12px;font-size:12px;box-shadow:var(--shadow);display:flex;flex-wrap:wrap;gap:4px 12px;max-width:calc(100% - 24px);color:var(--ink2)}
 .maplegend span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .maplegend i{width:9px;height:9px;border-radius:50%;display:block}
@@ -326,10 +327,13 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
  .band #newTrip,.band #editTrip,.band #importBtn,.band #exportBtn,.band #setBtn{display:none}
  .band .more{display:inline-flex}.band .acct{min-height:38px;padding:0 12px;flex:none}.band .acct.in{width:38px}.band .ib{width:38px;height:38px}
  .facts{margin-top:6px}.fact{padding:4px 10px;font-size:13px}
- .facts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-14px;padding-right:14px}.facts::-webkit-scrollbar{display:none}
+ .facts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}.facts::-webkit-scrollbar{display:none}
  .brand{display:none}
  .row{grid-template-columns:84px minmax(0,1fr) 84px}
  .ledtable{display:none}.ledlist{display:block}
+ .cats{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -20px;padding:2px 20px 4px;min-height:46px}.cats::-webkit-scrollbar{display:none}.cats span{white-space:nowrap}
+ .stack td{padding-inline-start:6.5em}.stack td::before{width:6em;margin-inline-start:-6.5em;font-size:12px;padding-top:1px}
+ .stack tbody tr{background:var(--card)}
  .stop,.h12 .stop{padding-right:46px}.rowacts [data-edit-row]{display:none}.rowacts{top:4px}.rowacts .grip{height:44px;width:40px;opacity:.6}
  .band .btn .lbl{display:none}
  table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:7em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:6.5em;margin-inline-start:-7em;color:var(--muted)}.stack td:empty{display:none}.stack tfoot td::before{content:""}
@@ -755,6 +759,8 @@ function renderView(){
     return;
   }
   if(S.tab === 'itin') v.innerHTML = itinHTML(); else if(S.tab === 'table') v.innerHTML = tableHTML(); else if(S.tab === 'check') v.innerHTML = checkHTML(); else v.innerHTML = budgetHTML();
+  v.querySelectorAll('table.stack').forEach(tb => { const hs = [...tb.tHead.rows[0].cells].map(c => c.textContent.replace(/[↑↓]/g, '').trim());
+    [...tb.tBodies[0].rows].forEach(r => { let k = 0; [...r.cells].forEach(c => { c.dataset.l = hs[k] || ''; k += c.colSpan; }); }); });
 }
 function priceHTML(i){
   if(!+i.price) return '<div class="price"></div>';
