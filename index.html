@@ -111,6 +111,20 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .meta > *:not(:first-child)::before{content:"·";margin:0 6px;color:var(--line)}
 .meta svg{width:13px;height:13px;vertical-align:-2px;margin-right:4px}
 .meta .ok{color:var(--ok);font-weight:600}
+.stop .body{min-width:0}
+.m1{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0;white-space:nowrap}
+.ctag{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,transparent);border-radius:6px;padding:2px 7px 2px 6px;line-height:1.35}
+.ctag svg{width:12px;height:12px}
+.m1 .plc{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink2);font-size:13px}
+.m2{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;margin-top:3px}
+.m2 > *{flex:none}.m2 > *:first-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.stt{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap;line-height:1.35}
+.stt.booked{color:var(--blue2);background:color-mix(in srgb,var(--blue2) 12%,transparent)}
+.stt.paid{color:var(--ok);background:color-mix(in srgb,var(--ok) 13%,transparent)}
+.stt.idea{color:var(--muted);border:1px dashed var(--line)}
+.side .price:empty{display:none}
+.compact .m1,.compact .m2{display:none}
 .meta .night{color:var(--blue2);font-weight:600}
 .meta .warn{color:var(--coralInk);font-weight:700}
 .meta .nopin{color:var(--warn)}
@@ -327,7 +341,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
 @media(max-width:600px){
  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
  .stop,.h12 .stop{grid-template-columns:44px 24px minmax(0,1fr);gap:0 10px}
- .stop .price{grid-column:3;text-align:left;margin-top:2px}.price small{display:inline;margin-left:6px}
+ .stop .side{grid-column:3;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;margin-top:4px}.stop .side:not(:has(.stt)):not(:has(.price:not(:empty))){display:none}.stop .price{text-align:left}.price small{display:inline;margin-left:6px}
  .time{font-size:14px}.day{padding:4px 14px 8px;border-radius:18px}
  .band{padding:8px 12px 10px}
  .bar{flex-wrap:nowrap;gap:6px}.tripsel{flex:1 1 auto;min-width:0}.band select{font-size:17px;max-width:100%;width:100%;padding-left:4px}
@@ -781,15 +795,15 @@ const PEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-w
 const GRIP = '<svg viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
 function stopHTML(i, prev, fromNight, bad){
   const c = CATS[i.category] || CATS.other, col = stopColor(i), num = SEQ.get(i.id), sel = S.sel === i.id, canDrag = S.canWrite && !S.q;
-  const meta = [`<span>${icon(i.category)}${esc(c[0].split(' ')[0])}</span>`];
-  if(i.place) meta.push(`<span>${esc(i.place)}</span>`);
+  // line 1: category tag + place. line 2: travel, night, warnings. Status sits with the price.
+  const m1 = `<span class="ctag" style="--cc:${c[1]}">${icon(i.category)}${esc(c[0].split(' ')[0])}</span>${i.place ? `<span class="plc">${esc(i.place)}</span>` : ''}`;
+  const meta = [];
   const leg = []; if(i.drive) leg.push(`${i.category === 'flight' ? 'Flight' : 'Drive'} ${esc(i.drive)}`);
   if(prev && hasPin(prev) && hasPin(i)){ const r = driveCfg().on && ROUTES[rkey(prev, i)], k = r ? r.km : km(prev, i); if(k >= 0.05) leg.push(kmTxt(k) + (r ? ' by road' : '') + (fromNight ? ' from last night' : '')); }
-  if(leg.length) meta.push(`<span>${leg.join(', ')}</span>`);
+  if(leg.length) meta.push(`<span>${leg.join(' · ')}</span>`);
   const n = nightOf(i); if(n > 0) meta.push(`<span class="night">Night ${n}</span>`);
   if(i.stay) meta.push(`<span>Stay ${esc(i.stay)}</span>`);
-  if(i.status === 'booked' || i.status === 'paid') meta.push(`<span class="ok">✓ ${STAT[i.status]}</span>`);
-  if(i.status === 'idea') meta.push(`<span>Idea</span>`);
+  const st = ['booked','paid','idea'].includes(i.status) ? `<span class="stt ${i.status}">${i.status === 'idea' ? '' : '✓ '}${STAT[i.status]}</span>` : '';
   if(bad) meta.push(`<span class="warn" title="${esc(bad)}">Check time</span>`);
   if(!hasPin(i)) meta.push(`<span class="nopin">Not on map</span>`);
   const more = sel ? `<div class="more">${i.notes ? `<div class="note">${esc(i.notes)}</div>` : ''}${bad ? `<div class="meta"><span class="warn">${esc(bad)}</span></div>` : ''}
@@ -797,8 +811,8 @@ function stopHTML(i, prev, fromNight, bad){
   return `<div class="stop ${sel ? 'sel' : ''} ${bad ? 'bad' : ''}" data-id="${i.id}" style="--c:${col}">
     <div class="time">${i.time ? timeHTML(i.time) : '<small>Any time</small>'}${i.end ? `<small>– ${fmtTime(i.end)}</small>` : ''}</div>
     <div class="dot ${num ? '' : 'none'}">${num || ''}</div>
-    <div><h3>${esc(i.title)}</h3><div class="meta">${meta.join('')}</div>${more}</div>
-    ${priceHTML(i)}
+    <div class="body"><h3>${esc(i.title)}</h3><div class="m1">${m1}</div>${meta.length ? `<div class="meta m2">${meta.join('')}</div>` : ''}${more}</div>
+    <div class="side">${st}${priceHTML(i)}</div>
     <div class="rowacts">${S.canWrite ? `<button data-edit-row="${i.id}" aria-label="Edit" title="Edit">${PEN}</button>` : ''}${canDrag ? `<button class="grip" aria-label="Drag to move" title="Drag to move">${GRIP}</button>` : ''}</div></div>`;
 }
 // last pinned stop of the day before d, so day N+1 continues from day N
