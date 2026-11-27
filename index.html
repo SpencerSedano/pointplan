@@ -150,7 +150,7 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .ghost .rowacts button{opacity:1}
 .dragging-on{user-select:none;-webkit-user-select:none;cursor:grabbing}
 .dropnote{color:var(--muted);font-size:14px;padding:12px 2px}
-.addday{display:flex;align-items:center;gap:6px;margin-top:4px;color:var(--muted);border:0;background:none;border-radius:10px;min-height:40px;padding:0 6px;font-weight:600;font-size:14px}
+.addday{display:flex;width:100%;text-align:left;cursor:pointer;align-items:center;gap:6px;margin-top:4px;color:var(--muted);border:0;background:none;border-radius:10px;min-height:40px;padding:0 6px;font-weight:600;font-size:14px}
 .addday:hover{color:var(--ink);background:var(--card2)}
 .empty{padding:40px 10px;text-align:center;color:var(--muted)}
 .empty h2{color:var(--ink);font-size:24px;margin-bottom:8px}
@@ -769,7 +769,7 @@ function renderTripBar(){
   const b = +t.budget || 0, ppl = +t.people || 1;
   el.innerHTML = [
     `<button class="fact" data-act="${S.canWrite ? 'settings' : ''}" title="${S.canWrite ? 'Change trip dates' : ''}">${FI.cal}<b>${range}</b>${nights != null ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}</button>`,
-    ppl > 1 ? `<button class="fact" data-act="${S.canWrite ? 'settings' : ''}" title="${S.canWrite ? 'Change travelers' : ''}">${FI.ppl}<b>${ppl}</b> travelers</button>` : '',
+    ppl > 1 ? `<button class="fact" data-act="${S.canWrite ? 'settings' : ''}" data-focus="people" title="${S.canWrite ? 'Change travelers' : ''}">${FI.ppl}<b>${ppl}</b> travelers</button>` : '',
     `<button class="fact ${b && total > b ? 'over' : ''}" data-act="budget" title="Open the budget">${FI.money}<b class="num">${money(total)}</b>${b ? ` of ${money(b)}` : ''}${ppl > 1 ? ` · ${money(total / ppl)} each` : ''}</button>`,
     `<button class="fact" data-act="stops" title="Show all stops">${FI.pin}<b>${its.filter(i => !i.expense).length}</b> stops</button>`,
     driveCfg(t).on ? (() => { const sm = driveSummary(); return `<button class="fact" data-act="gobudget" title="Driving and fuel estimate">${FI.car}<b class="num">${Math.round(sm.kmTot).toLocaleString()} km</b> · fuel ${money(sm.cost, sm.cfg.cur)}</button>`; })() : '',
@@ -1280,7 +1280,7 @@ $('#askClaude').onclick = async () => {
 
 /* ---------- trip dialog ---------- */
 const TF = $('#tripForm'), tdlg = $('#tripDlg'); let editingTrip = null;
-function openTrip(t){
+function openTrip(t, focus){
   if(!S.canWrite) return; editingTrip = t || null;
   $('#tripTitle').textContent = t ? 'Trip settings' : 'New trip';
   TF.reset(); TF.name.value = t?.name || ''; TF.start.value = t?.start || ''; TF.end.value = t?.end || ''; TF.budget.value = t?.budget || ''; TF.people.value = t?.people || '';
@@ -1288,7 +1288,7 @@ function openTrip(t){
   TF.rates.value = Object.entries(t?.rates || {}).map(([k,v]) => `${k} = ${v}`).join('\n');
   const owner = !t || S.mode !== 'cloud' || t.owner === S.user?.uid;
   $('#delTrip').hidden = !t || !owner; $('#leaveTrip').hidden = !t || owner;
-  renderShare(); tdlg.showModal(); TF.name.focus();
+  renderShare(); tdlg.showModal(); const ff = (focus && TF[focus]) || TF.name; ff.focus(); if(ff !== TF.name){ ff.select?.(); ff.scrollIntoView({block:'center'}); }
 }
 // who can see and edit this trip (signed-in sync only)
 function renderShare(){
@@ -1609,7 +1609,7 @@ $('#view').addEventListener('change', e => {
 $('#tripBar').addEventListener('click', e => {
   const f = e.target.closest('button.fact'); if(!f) return; const a = f.dataset.act;
   const go = tab => { S.tab = tab; ls.set('tab', tab); renderTabs(); renderView(); };
-  if(a === 'settings') $('#editTrip').click();
+  if(a === 'settings') openTrip(trip(), f.dataset.focus);
   else if(a === 'budget') go('budget');
   else if(a === 'check') go('check');
   else if(a === 'stops'){ S.day = 'all'; S.q = ''; const q = $('#q'); if(q) q.value = ''; go(S.tab === 'table' ? 'table' : 'itinerary'); renderDays(); if(typeof renderMap === 'function') renderMap(true); }
