@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="format-detection" content="telephone=no,address=no,date=no,email=no">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PointPlan</title>
 <meta name="description" content="Plan trips day by day: stops, times, costs and a map. Works offline.">
@@ -61,7 +62,7 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .spacer{flex:1}
 .sync{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
 .sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok)}.sync.off::before{background:var(--warn)}
-.facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.facts{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:8px}
 .fact{flex:none;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:14px;font-weight:500;color:var(--ink2);background:var(--card);white-space:nowrap}
 .fact svg{width:15px;height:15px;color:var(--muted)}
 .fact b{color:var(--ink);font-weight:650}
@@ -72,10 +73,11 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .mapwrap{position:sticky;top:0;height:100vh;padding:16px 16px 16px 4px}
 .mapcard{position:relative;height:100%;border-radius:22px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--line)}
 #map{position:absolute;inset:0;background:var(--water)}
-.tabs{display:inline-flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:12px;max-width:100%;overflow-x:auto}
+.tabs{display:flex;width:fit-content;margin-inline:auto;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px;margin-bottom:12px;max-width:100%;overflow-x:auto}
 .tabs button{border:0;background:none;min-height:36px;padding:0 14px;font-weight:600;font-size:14px;color:var(--muted);border-radius:999px;white-space:nowrap}
 .tabs button[aria-selected=true]{color:var(--bg);background:var(--ink)}
-.days{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.days{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;padding-bottom:4px}
+.chip .dd{color:inherit;opacity:.65;font-weight:500}
 .days::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;min-height:36px;padding:0 13px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;color:var(--ink2)}
 .chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -157,6 +159,14 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .pill.booked{color:var(--blue2)}.pill.paid{color:var(--ok)}.pill.idea{color:var(--muted);border-style:dashed}
 /* table */
 .scroll{overflow-x:auto}
+table.stack{table-layout:fixed;width:100%}
+table.stack td,table.stack th{overflow-wrap:anywhere;vertical-align:top}
+table.stack small{display:block;color:var(--muted);font-size:12px;font-weight:500}
+table.stack .ctag{margin-top:4px;width:fit-content;display:flex}
+table.stack .stt{margin-top:4px}
+table.stack td.nt{color:var(--ink2);font-size:13px;white-space:pre-line}
+.w-when{width:108px}.w-name{width:30%}.w-place{width:20%}.w-price{width:112px}
+@media(min-width:901px){body[data-tab=table] .layout{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}}
 table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card)}
 .scroll{background:var(--card);border-radius:18px;border:1px solid var(--line);box-shadow:var(--shadow);padding:4px 8px}
 th{text-align:left;font-weight:600;color:var(--muted);padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;font-size:13px}
@@ -187,7 +197,7 @@ tfoot td{font-weight:700;border-bottom:0}
 .band .acct.in{width:42px;padding:0;justify-content:center;background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
 .sharebox{display:grid;gap:4px}.sharebox .ck li{min-height:44px}
 .dh-r{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.dh-r .t{margin-left:0}
-button.fact{cursor:pointer;font:inherit;font-size:14px}button.fact:hover{border-color:var(--ink2)}
+button.fact{cursor:pointer;font:inherit;font-size:14px;color:var(--ink2)}button.fact:hover{border-color:var(--ink2);background:var(--card2)}button.fact:active{transform:scale(.97)}
 .ledlist{display:none}
 .lgrp{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:4px 14px 6px;margin-bottom:10px}
 .lgh{display:flex;align-items:center;gap:8px;padding:10px 0 8px;font-weight:700;font-size:15px;border-bottom:1px solid var(--line)}
@@ -339,6 +349,11 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
  .mk .lb{max-width:150px}
 }
 @media(max-width:600px){
+ .tabs{display:grid;grid-template-columns:repeat(4,1fr);width:100%}.tabs button{padding:0 6px}
+ #days{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+ #days .chip{flex-direction:column;justify-content:center;gap:0;min-height:44px;padding:4px 4px;border-radius:12px;line-height:1.2;position:relative}
+ #days .chip i{position:absolute;top:6px;left:6px;width:6px;height:6px}
+ #days .chip .dd{font-size:11px}
  .grid2,.grid3{grid-template-columns:minmax(0,1fr)}
  .stop,.h12 .stop{grid-template-columns:44px 24px minmax(0,1fr);gap:0 10px}
  .stop .side{grid-column:3;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;margin-top:4px}.stop .side:not(:has(.stt)):not(:has(.price:not(:empty))){display:none}.stop .price{text-align:left}.price small{display:inline;margin-left:6px}
@@ -349,7 +364,7 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
  .band #newTrip,.band #editTrip,.band #importBtn,.band #exportBtn,.band #setBtn{display:none}
  .band .more{display:inline-flex}.band .acct{min-height:38px;padding:0 12px;flex:none}.band .acct.in{width:38px}.band .ib{width:38px;height:38px}
  .facts{margin-top:6px}.fact{padding:4px 10px;font-size:13px}
- .facts{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-12px;padding-right:12px}.facts::-webkit-scrollbar{display:none}
+ .facts{gap:5px}
  .brand{display:none}
  .row{grid-template-columns:84px minmax(0,1fr) 84px}
  .ledtable{display:none}.ledlist{display:block}
@@ -753,18 +768,18 @@ function renderTripBar(){
   const range = t.start ? `${fmtDay(t.start, {month:'short', day:'numeric'})}${t.end ? ' – ' + fmtDay(t.end, {month:'short', day:'numeric', year:'numeric'}) : ''}` : 'No dates yet';
   const b = +t.budget || 0, ppl = +t.people || 1;
   el.innerHTML = [
-    `<span class="fact">${FI.cal}<b>${range}</b>${nights != null ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}</span>`,
-    ppl > 1 ? `<span class="fact">${FI.ppl}<b>${ppl}</b> travelers</span>` : '',
-    `<span class="fact ${b && total > b ? 'over' : ''}">${FI.money}<b class="num">${money(total)}</b>${b ? ` of ${money(b)}` : ''}${ppl > 1 ? ` · ${money(total / ppl)} each` : ''}</span>`,
-    `<span class="fact">${FI.pin}<b>${its.filter(i => !i.expense).length}</b> stops</span>`,
+    `<button class="fact" data-act="${S.canWrite ? 'settings' : ''}" title="${S.canWrite ? 'Change trip dates' : ''}">${FI.cal}<b>${range}</b>${nights != null ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}</button>`,
+    ppl > 1 ? `<button class="fact" data-act="${S.canWrite ? 'settings' : ''}" title="${S.canWrite ? 'Change travelers' : ''}">${FI.ppl}<b>${ppl}</b> travelers</button>` : '',
+    `<button class="fact ${b && total > b ? 'over' : ''}" data-act="budget" title="Open the budget">${FI.money}<b class="num">${money(total)}</b>${b ? ` of ${money(b)}` : ''}${ppl > 1 ? ` · ${money(total / ppl)} each` : ''}</button>`,
+    `<button class="fact" data-act="stops" title="Show all stops">${FI.pin}<b>${its.filter(i => !i.expense).length}</b> stops</button>`,
     driveCfg(t).on ? (() => { const sm = driveSummary(); return `<button class="fact" data-act="gobudget" title="Driving and fuel estimate">${FI.car}<b class="num">${Math.round(sm.kmTot).toLocaleString()} km</b> · fuel ${money(sm.cost, sm.cfg.cur)}</button>`; })() : '',
-    when ? `<span class="fact">${FI.clock}${when}</span>` : ''].join('');
+    when ? `<button class="fact" data-act="check" title="Open the checklist">${FI.clock}${when}</button>` : ''].join('');
 }
 function renderDays(){
   const el = $('#days'); if(!trip()){ el.innerHTML = ''; $('#mapDays').innerHTML = ''; return; }
   const days = tripDays(), un = tripStops().some(i => !i.date);
   el.innerHTML = `<button class="chip" data-day="all" aria-pressed="${S.day === 'all'}">All days</button>` +
-    days.map((d, n) => `<button class="chip" data-day="${d}" aria-pressed="${S.day === d}"><i style="background:${DAYC[n % DAYC.length]}"></i>Day ${n+1} · ${fmtDay(d, {weekday:'short', day:'numeric'})}</button>`).join('') +
+    days.map((d, n) => `<button class="chip" data-day="${d}" aria-pressed="${S.day === d}"><i style="background:${DAYC[n % DAYC.length]}"></i><b>Day ${n+1}</b><span class="dd">${fmtDay(d, {month:'numeric', day:'numeric'})} ${fmtDay(d, {weekday:'short'})}</span></button>`).join('') +
     (un ? `<button class="chip" data-day="none" aria-pressed="${S.day === 'none'}">Unscheduled</button>` : '');
   $('#mapDays').innerHTML = el.innerHTML;
 }
@@ -854,7 +869,7 @@ function itinHTML(){
   }).join('');
 }
 function tableHTML(){
-  const cols = [['date','Date'],['time','Time'],['title','Name'],['category','Type'],['place','Place'],['home','Price','r'],['status','Status'],['notes','Notes']];
+  const cols = [['date','When','w-when'],['title','Stop','w-name'],['place','Place','w-place'],['home','Price','r w-price'],['notes','Notes','w-notes']];
   const its = visibleItems(); const {k, d} = S.sort;
   const val = i => k === 'home' ? (toHome(i) || 0) : k === 'category' ? CATS[i.category]?.[0] : (i[k] || '');
   if(k !== 'date') its.sort((a,b) => { const x = val(a), y = val(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * d; });
@@ -862,9 +877,11 @@ function tableHTML(){
   const total = its.reduce((s,i) => s + (toHome(i)||0), 0);
   if(!its.length) return `<div class="empty"><h2>Nothing here yet</h2></div>`;
   return `<div class="scroll"><table class="stack"><thead><tr>${cols.map(([c,l,r]) => `<th class="${r||''}" data-sort="${c}">${l}${k === c ? (d > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead><tbody>
-   ${its.map(i => `<tr data-id="${i.id}"><td class="num">${i.date ? fmtDay(i.date) : esc(i.span || '')}</td><td class="num">${fmtTime(i.time)}${i.end ? '–' + fmtTime(i.end) : ''}</td><td><b>${esc(i.title)}</b></td><td>${CATS[i.category]?.[0] || ''}</td><td>${esc(i.place || '')}</td>
-   <td class="r num">${+i.price ? money(amt(i), i.currency || home()) : ''}${+i.price && (i.currency || home()) !== home() ? `<br><small>${toHome(i) == null ? 'no rate' : '≈ ' + money(toHome(i))}</small>` : ''}</td><td>${STAT[i.status || 'planned']}</td><td>${esc(i.notes || '')}</td></tr>`).join('')}
-   </tbody><tfoot><tr><td colspan="5">${its.length} stops</td><td class="r num">${money(total)}</td><td colspan="2"></td></tr></tfoot></table></div>`;
+   ${its.map(i => { const c = CATS[i.category] || CATS.other, st = ['booked','paid','idea'].includes(i.status) ? `<span class="stt ${i.status}">${i.status === 'idea' ? '' : '✓ '}${STAT[i.status]}</span>` : '';
+     return `<tr data-id="${i.id}"><td class="num">${i.date ? `<b>${fmtDay(i.date)}</b>` : esc(i.span || '')}${i.time ? `<small>${fmtTime(i.time)}${i.end ? '–' + fmtTime(i.end) : ''}</small>` : ''}</td>
+   <td><b>${esc(i.title)}</b><span class="ctag" style="--cc:${c[1]}">${icon(i.category)}${esc(c[0].split(' ')[0])}</span></td><td>${esc(i.place || '')}</td>
+   <td class="r num">${+i.price ? money(amt(i), i.currency || home()) : ''}${+i.price && (i.currency || home()) !== home() ? `<small>${toHome(i) == null ? 'no rate' : '≈ ' + money(toHome(i))}</small>` : ''}${st}</td><td class="nt">${esc(i.notes || '')}</td></tr>`; }).join('')}
+   </tbody><tfoot><tr><td colspan="3">${its.length} stops</td><td class="r num">${money(total)}</td><td></td></tr></tfoot></table></div>`;
 }
 /* ---------- currency helpers ---------- */
 // convert v from one currency to another through the trip's home currency (null when a rate is missing)
@@ -1589,7 +1606,14 @@ $('#view').addEventListener('change', e => {
   const k = e.target.dataset.drive; if(k){ const v = k === 'on' ? e.target.checked : k === 'cur' ? e.target.value : (parseFloat(e.target.value) || 0); saveDrive({[k]: v}); return; }
   const d = e.target.dataset.driveday; if(d){ const sm = driveSummary(); const days = Object.fromEntries(sm.days.map(x => [x.d, x.on])); days[d] = e.target.checked; saveDrive({days}); }
 });
-$('#tripBar').addEventListener('click', e => { if(e.target.closest('[data-act="gobudget"]')){ S.tab = 'budget'; ls.set('tab', 'budget'); renderTabs(); renderView(); setTimeout(() => document.querySelector('.drive')?.scrollIntoView({behavior:'smooth', block:'start'}), 50); } });
+$('#tripBar').addEventListener('click', e => {
+  const f = e.target.closest('button.fact'); if(!f) return; const a = f.dataset.act;
+  const go = tab => { S.tab = tab; ls.set('tab', tab); renderTabs(); renderView(); };
+  if(a === 'settings') $('#editTrip').click();
+  else if(a === 'budget') go('budget');
+  else if(a === 'check') go('check');
+  else if(a === 'stops'){ S.day = 'all'; S.q = ''; const q = $('#q'); if(q) q.value = ''; go(S.tab === 'table' ? 'table' : 'itinerary'); renderDays(); if(typeof renderMap === 'function') renderMap(true); }
+  if(e.target.closest('[data-act="gobudget"]')){ S.tab = 'budget'; ls.set('tab', 'budget'); renderTabs(); renderView(); setTimeout(() => document.querySelector('.drive')?.scrollIntoView({behavior:'smooth', block:'start'}), 50); } });
 function addFuelExpense(){
   const t = trip(), sm = driveSummary(), id = t.id + '-fuel', old = S.items.find(i => i.id === id);
   Store.saveItem({...(old || {created: Date.now(), status:'planned', link:''}), id, tripId:t.id, expense:true, category:'transport', title:'Fuel estimate 油錢', date:'', time:'', end:'', place:'',

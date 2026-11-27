@@ -1,6 +1,6 @@
 // PointPlan service worker: lets the app open and work without internet.
 // Bump VERSION whenever app files change so phones pick up the new version.
-const VERSION = 'pointplan-v7';
+const VERSION = 'pointplan-v8';
 const SHELL = `${VERSION}-shell`;
 const TILES = 'pointplan-tiles-osm'; // renamed so old (broken) map tiles saved on phones are thrown away
 const FONTS = 'pointplan-fonts';
