@@ -118,6 +118,8 @@ h1,h2,h3{font-family:Inter,system-ui,sans-serif;margin:0;line-height:1.15;letter
 .ctag{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--cc);background:color-mix(in srgb,var(--cc) 12%,transparent);border-radius:6px;padding:2px 7px 2px 6px;line-height:1.35}
 .ctag svg{width:12px;height:12px}
 .m1 .plc{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink2);font-size:13px}
+.nprev{margin-top:4px;font-size:13px;color:var(--ink2);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;border-left:2px solid var(--line);padding-left:8px}
+.compact .nprev{display:none}
 .m2{flex-wrap:nowrap;white-space:nowrap;overflow:hidden;margin-top:3px}
 .m2 > *{flex:none}.m2 > *:first-child{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .side{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
@@ -166,7 +168,6 @@ table.stack .ctag{margin-top:4px;width:fit-content;display:flex}
 table.stack .stt{margin-top:4px}
 table.stack td.nt{color:var(--ink2);font-size:13px;white-space:pre-line}
 .w-when{width:108px}.w-name{width:30%}.w-place{width:20%}.w-price{width:112px}
-@media(min-width:901px){body[data-tab=table] .layout{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}}
 table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card)}
 .scroll{background:var(--card);border-radius:18px;border:1px solid var(--line);box-shadow:var(--shadow);padding:4px 8px}
 th{text-align:left;font-weight:600;color:var(--muted);padding:10px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;font-size:13px}
@@ -407,7 +408,6 @@ form:not(.exp) .onlyexp{display:none!important}form.exp .nostop{display:none!imp
   <section class="panel">
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="itin" aria-selected="true">Itinerary</button>
-      <button role="tab" data-tab="table" aria-selected="false">Table</button>
       <button role="tab" data-tab="budget" aria-selected="false">Budget</button>
       <button role="tab" data-tab="check" aria-selected="false">Checklist</button>
     </div>
@@ -595,7 +595,7 @@ function applySettings(){
   document.body.classList.toggle('compact', SET.compact);
   document.body.classList.toggle('h12', SET.clock === '12');
 }
-const S = {trips:[], items:[], tripId: ls.get('trip'), day:'all', tab: ls.get('tab') || 'itin', q:'', sort:{k:'date',d:1}, sel:null, mode:'loading', canWrite:true, sample:null, downloads:null};
+const S = {trips:[], items:[], tripId: ls.get('trip'), day:'all', tab: ['itin','budget','check'].includes(ls.get('tab')) ? ls.get('tab') : 'itin', q:'', sort:{k:'date',d:1}, sel:null, mode:'loading', canWrite:true, sample:null, downloads:null};
 
 /* ---------- dates & money ---------- */
 const pd = s => { if(!s) return null; const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
@@ -786,7 +786,7 @@ function renderDays(){
 function renderTabs(){ document.body.dataset.tab = S.tab; document.body.classList.toggle('notrip', !trip()); document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab)); const side = S.tab === 'budget' || S.tab === 'check'; $('#days').hidden = side; document.querySelector('.tools').hidden = side || !trip(); }
 function visibleItems(){
   const q = S.q.trim().toLowerCase();
-  return sortItems((S.tab === 'table' ? tripItems() : tripStops()).filter(i => !(SET.hideIdeas && i.status === 'idea' && S.tab !== 'table')).filter(i => (S.day === 'all' || (S.day === 'none' ? !i.date : i.date === S.day)) && (!q || [i.title, i.place, i.notes, CATS[i.category]?.[0]].join(' ').toLowerCase().includes(q))));
+  return sortItems(tripStops().filter(i => !(SET.hideIdeas && i.status === 'idea')).filter(i => (S.day === 'all' || (S.day === 'none' ? !i.date : i.date === S.day)) && (!q || [i.title, i.place, i.notes, CATS[i.category]?.[0]].join(' ').toLowerCase().includes(q))));
 }
 function renderView(){
   const v = $('#view');
@@ -795,7 +795,7 @@ function renderView(){
      <div class="bar needw"><button class="btn primary" data-act="newtrip">Create a trip</button><button class="btn" data-act="import">Import Excel</button><button class="btn" data-act="sample">Load sample trip</button></div></div>`;
     return;
   }
-  if(S.tab === 'itin') v.innerHTML = itinHTML(); else if(S.tab === 'table') v.innerHTML = tableHTML(); else if(S.tab === 'check') v.innerHTML = checkHTML(); else v.innerHTML = budgetHTML();
+  if(S.tab === 'itin') v.innerHTML = itinHTML(); else if(S.tab === 'check') v.innerHTML = checkHTML(); else v.innerHTML = budgetHTML();
   v.querySelectorAll('table.stack').forEach(tb => { const hs = [...tb.tHead.rows[0].cells].map(c => c.textContent.replace(/[↑↓]/g, '').trim());
     [...tb.tBodies[0].rows].forEach(r => { let k = 0; [...r.cells].forEach(c => { c.dataset.l = hs[k] || ''; k += c.colSpan; }); }); });
 }
@@ -826,7 +826,7 @@ function stopHTML(i, prev, fromNight, bad){
   return `<div class="stop ${sel ? 'sel' : ''} ${bad ? 'bad' : ''}" data-id="${i.id}" style="--c:${col}">
     <div class="time">${i.time ? timeHTML(i.time) : '<small>Any time</small>'}${i.end ? `<small>– ${fmtTime(i.end)}</small>` : ''}</div>
     <div class="dot ${num ? '' : 'none'}">${num || ''}</div>
-    <div class="body"><h3>${esc(i.title)}</h3><div class="m1">${m1}</div>${meta.length ? `<div class="meta m2">${meta.join('')}</div>` : ''}${more}</div>
+    <div class="body"><h3>${esc(i.title)}</h3><div class="m1">${m1}</div>${meta.length ? `<div class="meta m2">${meta.join('')}</div>` : ''}${i.notes && !sel ? `<div class="nprev">${esc(i.notes.replace(/\s+/g, ' ').trim())}</div>` : ''}${more}</div>
     <div class="side">${st}${priceHTML(i)}</div>
     <div class="rowacts">${S.canWrite ? `<button data-edit-row="${i.id}" aria-label="Edit" title="Edit">${PEN}</button>` : ''}${canDrag ? `<button class="grip" aria-label="Drag to move" title="Drag to move">${GRIP}</button>` : ''}</div></div>`;
 }
@@ -867,21 +867,6 @@ function itinHTML(){
       ${!list.length ? `<div class="dropnote">Nothing planned yet.${S.canWrite && !S.q ? ' Drag a stop here or add one.' : ''}</div>` : ''}
       <button class="addday needw" data-add="${d}">+ Add stop</button></section>`;
   }).join('');
-}
-function tableHTML(){
-  const cols = [['date','When','w-when'],['title','Stop','w-name'],['place','Place','w-place'],['home','Price','r w-price'],['notes','Notes','w-notes']];
-  const its = visibleItems(); const {k, d} = S.sort;
-  const val = i => k === 'home' ? (toHome(i) || 0) : k === 'category' ? CATS[i.category]?.[0] : (i[k] || '');
-  if(k !== 'date') its.sort((a,b) => { const x = val(a), y = val(b); return (typeof x === 'number' ? x - y : String(x).localeCompare(String(y))) * d; });
-  else if(d < 0) its.reverse();
-  const total = its.reduce((s,i) => s + (toHome(i)||0), 0);
-  if(!its.length) return `<div class="empty"><h2>Nothing here yet</h2></div>`;
-  return `<div class="scroll"><table class="stack"><thead><tr>${cols.map(([c,l,r]) => `<th class="${r||''}" data-sort="${c}">${l}${k === c ? (d > 0 ? ' ↑' : ' ↓') : ''}</th>`).join('')}</tr></thead><tbody>
-   ${its.map(i => { const c = CATS[i.category] || CATS.other, st = ['booked','paid','idea'].includes(i.status) ? `<span class="stt ${i.status}">${i.status === 'idea' ? '' : '✓ '}${STAT[i.status]}</span>` : '';
-     return `<tr data-id="${i.id}"><td class="num">${i.date ? `<b>${fmtDay(i.date)}</b>` : esc(i.span || '')}${i.time ? `<small>${fmtTime(i.time)}${i.end ? '–' + fmtTime(i.end) : ''}</small>` : ''}</td>
-   <td><b>${esc(i.title)}</b><span class="ctag" style="--cc:${c[1]}">${icon(i.category)}${esc(c[0].split(' ')[0])}</span></td><td>${esc(i.place || '')}</td>
-   <td class="r num">${+i.price ? money(amt(i), i.currency || home()) : ''}${+i.price && (i.currency || home()) !== home() ? `<small>${toHome(i) == null ? 'no rate' : '≈ ' + money(toHome(i))}</small>` : ''}${st}</td><td class="nt">${esc(i.notes || '')}</td></tr>`; }).join('')}
-   </tbody><tfoot><tr><td colspan="3">${its.length} stops</td><td class="r num">${money(total)}</td><td></td></tr></tfoot></table></div>`;
 }
 /* ---------- currency helpers ---------- */
 // convert v from one currency to another through the trip's home currency (null when a rate is missing)
@@ -1595,7 +1580,6 @@ $('#view').addEventListener('click', e => {
   const dt = e.target.closest('[data-dtitle]'); if(dt && S.canWrite && !dt.querySelector('input')){ editDayTitle(dt); return; }
   if(e.target.closest('.dtin')) return;
   const ad = e.target.closest('[data-add]'); if(ad){ openItem(null, {date: ad.dataset.add}); return; }
-  const th = e.target.closest('[data-sort]'); if(th){ const k = th.dataset.sort; S.sort = {k, d: S.sort.k === k ? -S.sort.d : 1}; renderView(); return; }
   const tr = e.target.closest('tr[data-id], .lrow[data-id]'); if(tr){ openItem(S.items.find(i => i.id === tr.dataset.id)); return; }
   if(e.target.closest('.grip')) return;
   const ed = e.target.closest('[data-edit-row]'); if(ed){ openItem(S.items.find(i => i.id === ed.dataset.editRow)); return; }
@@ -1612,7 +1596,7 @@ $('#tripBar').addEventListener('click', e => {
   if(a === 'settings') openTrip(trip(), f.dataset.focus);
   else if(a === 'budget') go('budget');
   else if(a === 'check') go('check');
-  else if(a === 'stops'){ S.day = 'all'; S.q = ''; const q = $('#q'); if(q) q.value = ''; go(S.tab === 'table' ? 'table' : 'itinerary'); renderDays(); if(typeof renderMap === 'function') renderMap(true); }
+  else if(a === 'stops'){ S.day = 'all'; S.q = ''; const q = $('#q'); if(q) q.value = ''; go('itin'); renderDays(); if(typeof renderMap === 'function') renderMap(true); }
   if(e.target.closest('[data-act="gobudget"]')){ S.tab = 'budget'; ls.set('tab', 'budget'); renderTabs(); renderView(); setTimeout(() => document.querySelector('.drive')?.scrollIntoView({behavior:'smooth', block:'start'}), 50); } });
 function addFuelExpense(){
   const t = trip(), sm = driveSummary(), id = t.id + '-fuel', old = S.items.find(i => i.id === id);
