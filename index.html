@@ -236,6 +236,17 @@ button.fact{cursor:pointer;font:inherit;font-size:14px;color:var(--ink2)}button.
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]) .osm{filter:invert(1) hue-rotate(180deg) grayscale(.5) brightness(.85) contrast(.9)}}
 :root[data-theme=dark] .osm{filter:invert(1) hue-rotate(180deg) grayscale(.5) brightness(.85) contrast(.9)}
 .prow{position:relative;height:28px}
+.prow.pill{background:light-dark(#fff,#1d232b);border-radius:999px;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.22)}
+.mk.sm{top:3px;width:22px;height:22px;font-size:10.5px;box-shadow:none}
+.prow.pill .mk + .mk{box-shadow:none}
+.mk.sm.sel{transform:scale(1.35)}
+.pmore{position:absolute;top:3px;height:22px;min-width:24px;padding:0 4px;display:grid;place-items:center;font:700 11px Inter,sans-serif;color:var(--ink2);cursor:pointer;border-radius:999px}
+.pmore:hover{background:var(--card2)}
+.pp-pop .leaflet-popup-content{margin:6px}.pp-pop .leaflet-popup-content-wrapper{border-radius:14px;background:var(--card);color:var(--ink)}.pp-pop .leaflet-popup-tip{background:var(--card)}
+.plist{display:grid;gap:2px;max-height:260px;overflow:auto;min-width:200px}
+.plist button{display:flex;align-items:center;gap:8px;border:0;background:none;text-align:left;padding:6px 8px;border-radius:10px;font:500 13px Inter,sans-serif;color:var(--ink);cursor:pointer}
+.plist button:hover{background:var(--card2)}.plist small{display:block;color:var(--muted);font-size:11.5px}
+.plist .mk.sm{display:grid;flex:none}
 .mk{position:absolute;top:0;width:28px;height:28px;border-radius:50%;background:var(--c);display:grid;place-items:center;color:#fff;font:700 12px Inter,sans-serif;cursor:pointer;
   box-shadow:0 0 0 2px light-dark(rgba(255,255,255,.95),rgba(13,17,23,.9)),0 2px 6px rgba(0,0,0,.25);transition:transform .15s;opacity:.94}
 .prow .mk + .mk{box-shadow:0 0 0 2px light-dark(rgba(255,255,255,.95),rgba(13,17,23,.9)),-3px 0 6px rgba(0,0,0,.18)}
@@ -1037,7 +1048,7 @@ function saveChecklist(cl){ const t = trip(); Store.saveTrip({...t, checklist: c
 /* ---------- map ---------- */
 const map = L.map('map', {worldCopyJump:true, minZoom:2, maxZoom:18, zoomSnap:0.5}).setView([24, 121], 4);
 const canvas = L.canvas({padding:0.5});
-const baseLayer = L.layerGroup().addTo(map), cityLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map), pinLayer = L.layerGroup().addTo(map);
+const baseLayer = L.layerGroup().addTo(map), cityLayer = L.layerGroup().addTo(map), routeLayer = L.layerGroup().addTo(map), ghostLayer = L.layerGroup().addTo(map), pinLayer = L.layerGroup().addTo(map);
 let geo = null, cities = [], tilesOK = false, tileFails = 0, markers = {};
 const probe = document.createElement('i'); probe.style.display = 'none'; document.body.appendChild(probe);
 const cssColor = v => { probe.style.color = `var(${v})`; return getComputedStyle(probe).color; };
@@ -1094,6 +1105,12 @@ function renderMap(fit){
     if(SET.routes && list.length > 1) L.polyline(list.map(i => [i.lat, i.lng]), {color:col, weight:4, opacity:.9, dashArray:'8 9', lineCap:'round'}).addTo(routeLayer);
     list.forEach(i => { PINS.push({i, num: seq.get(i.id), col, d}); pts.push([i.lat, i.lng, i.category === 'flight']); });
   }
+  // day focus: the other days' stops stay visible as small grey dots; tap one to jump to that day
+  ghostLayer.clearLayers();
+  if(S.day !== 'all') tripStops().filter(i => hasPin(i) && i.date && i.date !== S.day && !(SET.hideIdeas && i.status === 'idea')).forEach(i => {
+    L.circleMarker([i.lat, i.lng], {radius:4.5, color:'#fff', weight:1.5, fillColor:'#8b919a', fillOpacity:.75, opacity:.9})
+      .bindTooltip(`Day ${days.indexOf(i.date) + 1}: ${esc(i.title)}`, {direction:'top'})
+      .on('click', () => { S.day = i.date; S.sel = null; renderDays(); renderView(); renderMap(); renderMapSel(); }).addTo(ghostLayer); });
   const lg = $('#legend'); const ds = [...byDay.keys()].filter(Boolean);
   lg.hidden = ds.length < 2; lg.innerHTML = ds.map(d => `<span><i style="background:${dayColor(d)}"></i>Day ${days.indexOf(d)+1}</span>`).join('');
   { const ground = pts.filter(p => !p[2]); const use = (S.day !== 'all' || !ground.length ? pts : ground).slice(); pts.length = 0; use.forEach(p => pts.push([p[0], p[1]])); }
@@ -1104,7 +1121,10 @@ function renderMap(fit){
 }
 /* markers that overlap on screen (same place on different days, or crowded when zoomed out) stack into a column */
 let PINS = [], GROUPS = [];
-const STEP = 22; // horizontal overlap between markers in a row
+const STEP = 22; // spacing of the dots inside a pill
+const PMAX = 4;   // dots shown in a pill before it switches to "+N"
+// pill width for a group of n stops (a lone stop is just a circle)
+const pillW = n => n === 1 ? 28 : 8 + STEP * Math.min(n, PMAX) + (n > PMAX ? 0 : 0);
 function drawPins(){
   pinLayer.clearLayers(); markers = {}; GROUPS = [];
   const z = map.getZoom(), pts = PINS.map(p => map.project([p.i.lat, p.i.lng], z));
@@ -1113,7 +1133,7 @@ function drawPins(){
     PINS.forEach((q, j) => { if(!used[j] && g.some(m => pts[m].distanceTo(pts[j]) < 26)){ used[j] = true; g.push(j); } });
     GROUPS.push(g); });
   // rows grow sideways, so keep merging any rows whose boxes touch until none do
-  const box = g => { const x = g.reduce((s, m) => s + pts[m].x, 0) / g.length, y = g.reduce((s, m) => s + pts[m].y, 0) / g.length, w = 28 + STEP * (g.length - 1); return [x - w / 2 - 2, y - 16, x + w / 2 + 2, y + 16]; };
+  const box = g => { const x = g.reduce((s, m) => s + pts[m].x, 0) / g.length, y = g.reduce((s, m) => s + pts[m].y, 0) / g.length, w = pillW(g.length); return [x - w / 2 - 2, y - 16, x + w / 2 + 2, y + 16]; };
   for(let changed = true; changed;){ changed = false;
     outer: for(let a = 0; a < GROUPS.length; a++) for(let b = a + 1; b < GROUPS.length; b++){ const A = box(GROUPS[a]), B = box(GROUPS[b]);
       if(A[0] < B[2] && B[0] < A[2] && A[1] < B[3] && B[1] < A[3]){ GROUPS[a] = GROUPS[a].concat(GROUPS[b]); GROUPS.splice(b, 1); changed = true; break outer; } } }
@@ -1121,18 +1141,30 @@ function drawPins(){
   const showAll = S.day !== 'all' && SET.labels !== false;
   GROUPS.forEach(g => {
     const lat = g.reduce((s, p) => s + p.i.lat, 0) / g.length, lng = g.reduce((s, p) => s + p.i.lng, 0) / g.length;
-    const w = 28 + STEP * (g.length - 1), selP = g.find(p => p.i.id === S.sel);
+    const w = pillW(g.length), selP = g.find(p => p.i.id === S.sel);
+    // which dots fit in the pill: the first few, keeping the selected stop visible; the rest become "+N"
+    let vis = g.length > PMAX ? g.slice(0, PMAX - 1) : g.slice(), more = g.length - vis.length;
+    if(selP && !vis.includes(selP)) vis[vis.length - 1] = selP;
     // one label per marker group: the selected stop, else (day view) the first stop plus how many more
     const lp = selP || (showAll ? g[0] : null);
     const short = t => t.length > 30 ? t.slice(0, 29) + '…' : t;
     const label = lp ? `<div class="lb ${selP ? 'on' : ''}" style="--c:${lp.col};left:${w + 6}px">${esc(short(lp.i.title))}${lp.i.time ? `<small>${fmtTime(lp.i.time)}</small>` : ''}${!selP && g.length > 1 ? `<small>+${g.length - 1}</small>` : ''}</div>` : '';
-    const html = `<div class="prow" style="width:${w}px">${g.map((p, k) => `<div class="mk ${S.sel === p.i.id ? 'sel' : ''}" data-pid="${p.i.id}" title="${esc((p.num ? p.num + '. ' : '') + p.i.title)}" style="--c:${p.col};left:${STEP * k}px;z-index:${S.sel === p.i.id ? 300 : 100 + k}">${p.num || '•'}</div>`).join('')}${label}</div>`;
+    const html = g.length === 1
+      ? `<div class="prow" style="width:28px"><div class="mk ${S.sel === g[0].i.id ? 'sel' : ''}" data-pid="${g[0].i.id}" title="${esc((g[0].num ? g[0].num + '. ' : '') + g[0].i.title)}" style="--c:${g[0].col};left:0">${g[0].num || '•'}</div>${label}</div>`
+      : `<div class="prow pill" style="width:${w}px">${vis.map((p, k) => `<div class="mk sm ${S.sel === p.i.id ? 'sel' : ''}" data-pid="${p.i.id}" title="${esc((p.num ? p.num + '. ' : '') + p.i.title)}" style="--c:${p.col};left:${4 + STEP * k}px;z-index:${S.sel === p.i.id ? 300 : 100 + k}">${p.num || '•'}</div>`).join('')}${more ? `<div class="pmore" data-more="1" style="left:${4 + STEP * vis.length}px" title="Show all ${g.length} stops here">+${more}</div>` : ''}${label}</div>`;
     const m = L.marker([lat, lng], {icon:L.divIcon({className:'', html, iconSize:[w, 28], iconAnchor:[w / 2, 14]}), zIndexOffset: selP ? 1000 : g.length * 10, keyboard:false});
-    m.on('click', e => { const el = e.originalEvent?.target?.closest?.('[data-pid]'); const id = el ? el.dataset.pid : (selP ? selP.i.id : g[0].i.id); select(S.sel === id ? null : id, true); });
+    m.on('click', e => { if(e.originalEvent?.target?.closest?.('[data-more]')){ pillList(g, lat, lng); return; }
+      const el = e.originalEvent?.target?.closest?.('[data-pid]'); const id = el ? el.dataset.pid : (selP ? selP.i.id : g[0].i.id); select(S.sel === id ? null : id, true); });
     m.addTo(pinLayer); g.forEach((p, k) => markers[p.i.id] = {m, k, g, lat, lng});
   });
 }
 map.on('zoomend', drawPins);
+// list every stop in a crowded pill; tap one to select it
+function pillList(g, lat, lng){
+  const html = `<div class="plist">${g.map(p => `<button data-pick="${p.i.id}"><span class="mk sm" style="--c:${p.col};position:static">${p.num || '•'}</span><span>${esc(p.i.title)}${p.i.time ? `<small>${fmtTime(p.i.time)}</small>` : ''}</span></button>`).join('')}</div>`;
+  L.popup({closeButton:false, autoPanPadding:[20, 80], className:'pp-pop', offset:[0, -10]}).setLatLng([lat, lng]).setContent(html).openOn(map);
+}
+map.getContainer().addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if(!b) return; map.closePopup(); select(b.dataset.pick, true); });
 // select a stop (or null to clear): expands its row and enlarges its marker; never moves the map
 function select(id, scroll){
   S.sel = id; renderView(); drawPins(); renderMapSel();
